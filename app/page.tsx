@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
@@ -10,6 +10,34 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+   const [remember, setRemember] = useState(false);
+   const [ipInfo, setIpInfo] = useState<{ ip: string; country: string } | null>(
+     null,
+   );
+
+   useEffect(() => {
+     let cancelled = false;
+
+     async function loadIp() {
+       try {
+         const res = await fetch("https://ipapi.co/json/");
+         if (!res.ok) return;
+         const data: { ip?: string; country_name?: string } = await res.json();
+         if (cancelled) return;
+         if (data.ip && data.country_name) {
+           setIpInfo({ ip: data.ip, country: data.country_name });
+         }
+       } catch {
+         // Silenciar errores de red: la UI sigue funcionando sin IP
+       }
+     }
+
+     loadIp();
+
+     return () => {
+       cancelled = true;
+     };
+   }, []);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -101,6 +129,18 @@ export default function Home() {
                 className="w-full rounded-lg border border-zinc-700/80 bg-zinc-900/80 px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-colors focus:border-blue-500/80 focus:bg-zinc-900 focus:ring-2 focus:ring-blue-500/30 disabled:opacity-60"
               />
             </div>
+            <div className="flex items-center justify-between text-xs text-zinc-400">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  disabled={loading}
+                  className="h-3.5 w-3.5 rounded border border-zinc-600 bg-zinc-900 text-blue-500 outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                />
+                <span>Recordar sesión</span>
+              </label>
+            </div>
             <button
               type="submit"
               disabled={loading}
@@ -108,6 +148,11 @@ export default function Home() {
             >
               {loading ? "Ingresando…" : "Ingresar"}
             </button>
+            {ipInfo ? (
+              <p className="mt-1 text-center text-[11px] text-zinc-500">
+                Conectándose desde: {ipInfo.ip} — {ipInfo.country}
+              </p>
+            ) : null}
           </form>
         </div>
       </main>

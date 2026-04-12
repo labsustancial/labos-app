@@ -4,167 +4,233 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-
-interface Servicio {
-  tipo: "web-hosting" | "smm";
-  label: string;
-  icon: string;
-  slug?: string;
-}
-
 interface Cliente {
   id: string;
   nombre: string;
-  razonSocial?: string;
+  razon_social?: string;
   rut?: string;
-  direccion?: string;
-  ciudad?: string;
+  departamento?: string;
+  localidad?: string;
+  calle?: string;
   pais?: string;
   email?: string;
   telefono?: string;
+  whatsapp1?: string;
+  whatsapp2?: string;
   estado: "activo" | "inactivo";
-  servicios: Servicio[];
-  // Service Owner
-  soNombre?: string;
-  soTelefono?: string;
-  soCI?: string;
-  soFechaNac?: string;
+  so_nombre?: string;
+  so_apellido?: string;
+  so_telefono?: string;
+  so_ci?: string;
+  so_fecha_nac?: string;
+  so_departamento?: string;
+  so_localidad?: string;
+  so_direccion?: string;
 }
 
-// ─── Datos estáticos ──────────────────────────────────────────────────────────
-
-const clientesData: Cliente[] = [
-  {
-    id: "centro-motos-uruguay",
-    nombre: "Centro Motos Uruguay",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "centro-motos-uruguay" }],
-  },
-  {
-    id: "franca-comics",
-    nombre: "Franca Comics",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "franca-comics" }],
-  },
-  {
-    id: "finrel",
-    nombre: "Finrel",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "finrel" }],
-  },
-  {
-    id: "vistalsur",
-    nombre: "Vistalsur",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "vistalsur" }],
-  },
-  {
-    id: "espacio-chamanga",
-    nombre: "Espacio Chamangá",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "espacio-chamanga" }],
-  },
-  {
-    id: "jt-de-leon",
-    nombre: "JT de León",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "jt-de-leon" }],
-  },
-  {
-    id: "pastas-florida",
-    nombre: "Pastas Florida",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [
-      { tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "pastas-florida" },
-      { tipo: "smm", label: "SMM", icon: "📱" },
-    ],
-  },
-];
+const serviciosPorCliente: Record<string, { label: string; icon: string }[]> = {
+  "centro-motos-uruguay": [{ label: "Web / Hosting", icon: "🌐" }],
+  "franca-comics":        [{ label: "Web / Hosting", icon: "🌐" }],
+  "finrel":               [{ label: "Web / Hosting", icon: "🌐" }],
+  "vistalsur":            [{ label: "Web / Hosting", icon: "🌐" }],
+  "espacio-chamanga":     [{ label: "Web / Hosting", icon: "🌐" }],
+  "jt-de-leon":           [{ label: "Web / Hosting", icon: "🌐" }],
+  "pastas-florida":       [{ label: "Web / Hosting", icon: "🌐" }, { label: "SMM", icon: "📱" }],
+};
 
 const FILTERS = ["Todos", "Activo", "Inactivo"];
 
-// ─── Modal Nuevo Cliente ──────────────────────────────────────────────────────
-
-function NuevoClienteModal({ onClose }: { onClose: () => void }) {
+function NuevoClienteModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
-    nombre: "", razonSocial: "", rut: "", direccion: "",
-    ciudad: "", pais: "Uruguay", email: "", telefono: "",
-    soNombre: "", soTelefono: "", soCI: "", soFechaNac: "",
+    nombre: "", razon_social: "", rut: "",
+    pais: "Uruguay", departamento: "", localidad: "", calle: "",
+    email: "", telefono: "", whatsapp1: "", whatsapp2: "",
+    so_nombre: "", so_apellido: "", so_telefono: "", so_ci: "", so_fecha_nac: "",
+    so_departamento: "", so_localidad: "", so_direccion: "",
   });
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  function generarId(nombre: string) {
+    return nombre.toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim().replace(/\s+/g, "-");
+  }
+
+  async function handleGuardar() {
+    if (!form.nombre.trim()) { setError("El nombre es obligatorio"); return; }
+    setLoading(true); setError("");
+    try {
+      const supabase = createClient();
+      const { error: err } = await supabase.from("clientes").insert({
+        id: generarId(form.nombre),
+        nombre: form.nombre.trim(),
+        razon_social: form.razon_social || null,
+        rut: form.rut || null,
+        pais: form.pais || "Uruguay",
+        departamento: form.departamento || null,
+        localidad: form.localidad || null,
+        calle: form.calle || null,
+        email: form.email || null,
+        telefono: form.telefono || null,
+        whatsapp1: form.whatsapp1 || null,
+        whatsapp2: form.whatsapp2 || null,
+        estado: "activo",
+        so_nombre: form.so_nombre || null,
+        so_apellido: form.so_apellido || null,
+        so_telefono: form.so_telefono || null,
+        so_ci: form.so_ci || null,
+        so_fecha_nac: form.so_fecha_nac || null,
+        so_departamento: form.so_departamento || null,
+        so_localidad: form.so_localidad || null,
+        so_direccion: form.so_direccion || null,
+      });
+      if (err) throw err;
+      onCreated(); onClose();
+    } catch (e: any) {
+      setError(e.message || "Error al guardar");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const inputCls = "bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500";
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-white">+ Nuevo cliente</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors text-xl">✕</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl">✕</button>
         </div>
 
         <div className="px-6 py-5 space-y-6">
-          {/* Datos de la empresa */}
+          {error && <div className="bg-red-900/30 border border-red-700/40 rounded-lg px-4 py-3 text-sm text-red-300">⚠️ {error}</div>}
+
+          {/* Datos generales */}
           <div>
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">🏢 Datos de la empresa</h3>
             <div className="grid grid-cols-2 gap-4">
-              {[
-                { label: "Nombre comercial *", key: "nombre" },
-                { label: "Razón social", key: "razonSocial" },
-                { label: "RUT", key: "rut" },
-                { label: "País", key: "pais" },
-                { label: "Ciudad", key: "ciudad" },
-                { label: "Dirección", key: "direccion" },
-                { label: "Email", key: "email", type: "email" },
-                { label: "Teléfono", key: "telefono", type: "tel" },
-              ].map(({ label, key, type = "text" }) => (
-                <div key={key} className="flex flex-col gap-1">
-                  <label className="text-xs text-gray-500">{label}</label>
-                  <input type={type} value={(form as any)[key]}
-                    onChange={e => set(key, e.target.value)}
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors" />
-                </div>
-              ))}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Nombre comercial *</label>
+                <input value={form.nombre} onChange={e => set("nombre", e.target.value)} className={inputCls} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Razón social</label>
+                <input value={form.razon_social} onChange={e => set("razon_social", e.target.value)} className={inputCls} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">RUT</label>
+                <input value={form.rut} onChange={e => set("rut", e.target.value)} className={inputCls} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Email</label>
+                <input type="email" value={form.email} onChange={e => set("email", e.target.value)} className={inputCls} />
+              </div>
+            </div>
+          </div>
+
+          {/* Ubicación empresa */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">📍 Ubicación de la empresa</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">País</label>
+                <input value={form.pais} onChange={e => set("pais", e.target.value)} className={inputCls} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Departamento</label>
+                <input value={form.departamento} onChange={e => set("departamento", e.target.value)} placeholder="Ej: Montevideo" className={inputCls} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Localidad</label>
+                <input value={form.localidad} onChange={e => set("localidad", e.target.value)} placeholder="Ej: Ciudad Vieja" className={inputCls} />
+              </div>
+              <div className="col-span-3 flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Calle / Dirección</label>
+                <input value={form.calle} onChange={e => set("calle", e.target.value)} placeholder="Ej: Av. 18 de Julio 1234" className={inputCls} />
+              </div>
+            </div>
+          </div>
+
+          {/* Teléfonos */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">📞 Teléfonos</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Teléfono fijo</label>
+                <input type="tel" value={form.telefono} onChange={e => set("telefono", e.target.value)} placeholder="+598 2XXX XXXX" className={inputCls} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">WhatsApp 1</label>
+                <input type="tel" value={form.whatsapp1} onChange={e => set("whatsapp1", e.target.value)} placeholder="+598 9XX XXX XXX" className={inputCls} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">WhatsApp 2</label>
+                <input type="tel" value={form.whatsapp2} onChange={e => set("whatsapp2", e.target.value)} placeholder="+598 9XX XXX XXX" className={inputCls} />
+              </div>
             </div>
           </div>
 
           {/* Service Owner */}
           <div>
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">👤 Service Owner</h3>
-            <p className="text-xs text-gray-600 mb-3">Persona que contrata el servicio</p>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">👤 Service Owner</h3>
+            <p className="text-xs text-gray-600 mb-4">Persona que contrata el servicio</p>
             <div className="grid grid-cols-2 gap-4">
-              {[
-                { label: "Nombre y Apellido", key: "soNombre" },
-                { label: "Teléfono", key: "soTelefono", type: "tel" },
-                { label: "Cédula de Identidad", key: "soCI" },
-                { label: "Fecha de nacimiento", key: "soFechaNac", type: "date" },
-              ].map(({ label, key, type = "text" }) => (
-                <div key={key} className="flex flex-col gap-1">
-                  <label className="text-xs text-gray-500">{label}</label>
-                  <input type={type} value={(form as any)[key]}
-                    onChange={e => set(key, e.target.value)}
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors" />
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Nombre</label>
+                <input value={form.so_nombre} onChange={e => set("so_nombre", e.target.value)} placeholder="Ej: Daniela" className={inputCls} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Apellido</label>
+                <input value={form.so_apellido} onChange={e => set("so_apellido", e.target.value)} placeholder="Ej: García" className={inputCls} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Teléfono</label>
+                <input type="tel" value={form.so_telefono} onChange={e => set("so_telefono", e.target.value)} className={inputCls} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Cédula de Identidad</label>
+                <input value={form.so_ci} onChange={e => set("so_ci", e.target.value)} className={inputCls} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500">Fecha de nacimiento</label>
+                <input type="date" value={form.so_fecha_nac} onChange={e => set("so_fecha_nac", e.target.value)} className={inputCls} />
+              </div>
+            </div>
+
+            {/* Ubicación SO */}
+            <div className="mt-4">
+              <p className="text-xs text-gray-500 mb-3">📍 Ubicación (si difiere de la empresa)</p>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-gray-500">Departamento</label>
+                  <input value={form.so_departamento} onChange={e => set("so_departamento", e.target.value)} placeholder="Ej: Maldonado" className={inputCls} />
                 </div>
-              ))}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-gray-500">Localidad</label>
+                  <input value={form.so_localidad} onChange={e => set("so_localidad", e.target.value)} placeholder="Ej: Punta del Este" className={inputCls} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-gray-500">Dirección</label>
+                  <input value={form.so_direccion} onChange={e => set("so_direccion", e.target.value)} className={inputCls} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="sticky bottom-0 bg-gray-900 border-t border-gray-800 px-6 py-4 flex gap-3">
-          <button onClick={onClose}
-            className="flex-1 py-2.5 rounded-lg border border-gray-700 text-sm text-gray-400 hover:text-white transition-colors">
+          <button onClick={onClose} disabled={loading}
+            className="flex-1 py-2.5 rounded-lg border border-gray-700 text-sm text-gray-400 hover:text-white transition-colors disabled:opacity-50">
             Cancelar
           </button>
-          <button onClick={onClose}
-            className="flex-1 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-medium text-white transition-colors">
-            ✅ Guardar cliente
+          <button onClick={handleGuardar} disabled={loading}
+            className="flex-1 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-medium text-white transition-colors disabled:opacity-50">
+            {loading ? "Guardando..." : "✅ Guardar cliente"}
           </button>
         </div>
       </div>
@@ -172,14 +238,22 @@ function NuevoClienteModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Página principal ─────────────────────────────────────────────────────────
-
 export default function ClientesPage() {
   const router = useRouter();
   const [userName, setUserName] = useState("");
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("Todos");
   const [showNuevo, setShowNuevo] = useState(false);
+
+  async function cargarClientes() {
+    setLoading(true);
+    const supabase = createClient();
+    const { data } = await supabase.from("clientes").select("*").order("nombre");
+    if (data) setClientes(data);
+    setLoading(false);
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -187,28 +261,22 @@ export default function ClientesPage() {
       if (!user) { router.push("/"); return; }
       setUserName(user.user_metadata?.full_name ?? user.email ?? "");
     });
+    cargarClientes();
   }, [router]);
 
-  const filtered = clientesData.filter(c => {
+  const filtered = clientes.filter(c => {
     const matchSearch = c.nombre.toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === "Todos" || c.estado === filter.toLowerCase();
     return matchSearch && matchFilter;
   });
 
-  const activos = clientesData.filter(c => c.estado === "activo").length;
-  const inactivos = clientesData.filter(c => c.estado === "inactivo").length;
-
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {showNuevo && <NuevoClienteModal onClose={() => setShowNuevo(false)} />}
+      {showNuevo && <NuevoClienteModal onClose={() => setShowNuevo(false)} onCreated={cargarClientes} />}
 
-      {/* Header */}
       <header className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={() => router.push("/dashboard")}
-            className="text-gray-400 hover:text-white text-sm transition-colors">
-            ← Volver al dashboard
-          </button>
+          <button onClick={() => router.push("/dashboard")} className="text-gray-400 hover:text-white text-sm transition-colors">← Volver al dashboard</button>
           <span className="text-gray-700">|</span>
           <span className="text-lg font-semibold">⚡ LabOS</span>
         </div>
@@ -222,34 +290,28 @@ export default function ClientesPage() {
       </header>
 
       <main className="px-6 py-8 max-w-6xl mx-auto">
-        {/* Título */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-white">👥 Clientes</h1>
           <p className="text-gray-400 mt-1 text-sm">Base de datos central de clientes vinculados a servicios</p>
         </div>
 
-        {/* Métricas */}
         <div className="grid grid-cols-3 gap-4 mb-8">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-400 text-xs mb-1">Total Clientes</p>
-            <p className="text-2xl font-bold text-white">{clientesData.length}</p>
-          </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-400 text-xs mb-1">Activos</p>
-            <p className="text-2xl font-bold text-green-400">{activos}</p>
-          </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-400 text-xs mb-1">Inactivos</p>
-            <p className="text-2xl font-bold text-red-400">{inactivos}</p>
-          </div>
+          {[
+            { label: "Total Clientes", value: clientes.length, color: "text-white" },
+            { label: "Activos", value: clientes.filter(c => c.estado === "activo").length, color: "text-green-400" },
+            { label: "Inactivos", value: clientes.filter(c => c.estado === "inactivo").length, color: "text-red-400" },
+          ].map(m => (
+            <div key={m.label} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+              <p className="text-gray-400 text-xs mb-1">{m.label}</p>
+              <p className={`text-2xl font-bold ${m.color}`}>{m.value}</p>
+            </div>
+          ))}
         </div>
 
-        {/* Búsqueda + Filtros + Nuevo */}
         <div className="flex items-center gap-3 mb-6">
           <div className="relative flex-1">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-            <input type="text" placeholder="Buscar cliente..."
-              value={search} onChange={e => setSearch(e.target.value)}
+            <input type="text" placeholder="Buscar cliente..." value={search} onChange={e => setSearch(e.target.value)}
               className="w-full bg-gray-900 border border-gray-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500" />
           </div>
           <div className="flex items-center gap-2">
@@ -266,52 +328,61 @@ export default function ClientesPage() {
           </button>
         </div>
 
-        {/* Tabla */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wide">
-                <th className="text-left px-5 py-3">Cliente</th>
-                <th className="text-left px-5 py-3">Contacto</th>
-                <th className="text-left px-5 py-3">País</th>
-                <th className="text-left px-5 py-3">Servicios</th>
-                <th className="text-center px-5 py-3">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((c) => (
-                <tr key={c.id}
-                  onClick={() => router.push(`/dashboard/clientes/${c.id}`)}
-                  className="border-b border-gray-800 hover:bg-gray-800/40 transition-colors cursor-pointer group">
-                  <td className="px-5 py-4">
-                    <p className="font-medium text-white group-hover:text-blue-400 transition-colors">{c.nombre}</p>
-                    {c.razonSocial && <p className="text-xs text-gray-500 mt-0.5">{c.razonSocial}</p>}
-                  </td>
-                  <td className="px-5 py-4 text-gray-400 text-xs">
-                    {c.email && <p>{c.email}</p>}
-                    {c.telefono && <p>{c.telefono}</p>}
-                    {!c.email && !c.telefono && <span className="text-gray-600">—</span>}
-                  </td>
-                  <td className="px-5 py-4 text-gray-300">{c.pais || "—"}</td>
-                  <td className="px-5 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {c.servicios.map((s, i) => (
-                        <span key={i} className="inline-flex items-center gap-1 text-xs bg-gray-800 border border-gray-700 px-2 py-0.5 rounded-full text-gray-300">
-                          {s.icon} {s.label}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 text-center">
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${c.estado === "activo" ? "bg-green-900/40 text-green-400" : "bg-red-900/40 text-red-400"}`}>
-                      {c.estado === "activo" ? "Activo" : "Inactivo"}
-                    </span>
-                  </td>
+          {loading ? (
+            <div className="text-center py-12 text-gray-500 text-sm">Cargando clientes...</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wide">
+                  <th className="text-left px-5 py-3">Cliente</th>
+                  <th className="text-left px-5 py-3">Ubicación</th>
+                  <th className="text-left px-5 py-3">Teléfonos</th>
+                  <th className="text-left px-5 py-3">Servicios</th>
+                  <th className="text-center px-5 py-3">Estado</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {filtered.length === 0 && (
+              </thead>
+              <tbody>
+                {filtered.map(c => {
+                  const servicios = serviciosPorCliente[c.id] || [];
+                  const ubicacion = [c.localidad, c.departamento].filter(Boolean).join(", ");
+                  return (
+                    <tr key={c.id} onClick={() => router.push(`/dashboard/clientes/${c.id}`)}
+                      className="border-b border-gray-800 hover:bg-gray-800/40 transition-colors cursor-pointer group">
+                      <td className="px-5 py-4">
+                        <p className="font-medium text-white group-hover:text-blue-400 transition-colors">{c.nombre}</p>
+                        {c.razon_social && <p className="text-xs text-gray-500 mt-0.5">{c.razon_social}</p>}
+                      </td>
+                      <td className="px-5 py-4 text-xs text-gray-400">
+                        {ubicacion || <span className="text-gray-600">—</span>}
+                      </td>
+                      <td className="px-5 py-4 text-xs space-y-0.5">
+                        {c.telefono && <p className="text-gray-400">📞 {c.telefono}</p>}
+                        {c.whatsapp1 && <p className="text-green-400">💬 {c.whatsapp1}</p>}
+                        {c.whatsapp2 && <p className="text-green-400">💬 {c.whatsapp2}</p>}
+                        {!c.telefono && !c.whatsapp1 && !c.whatsapp2 && <span className="text-gray-600">—</span>}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {servicios.length > 0 ? servicios.map((s, i) => (
+                            <span key={i} className="inline-flex items-center gap-1 text-xs bg-gray-800 border border-gray-700 px-2 py-0.5 rounded-full text-gray-300">
+                              {s.icon} {s.label}
+                            </span>
+                          )) : <span className="text-gray-600 text-xs">—</span>}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${c.estado === "activo" ? "bg-green-900/40 text-green-400" : "bg-red-900/40 text-red-400"}`}>
+                          {c.estado === "activo" ? "Activo" : "Inactivo"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+          {!loading && filtered.length === 0 && (
             <div className="text-center py-12 text-gray-500 text-sm">No se encontraron clientes</div>
           )}
         </div>

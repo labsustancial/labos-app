@@ -4,113 +4,65 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, use } from "react";
 import { createClient } from "@/lib/supabase";
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-
-interface Servicio {
-  tipo: "web-hosting" | "smm";
-  label: string;
-  icon: string;
-  slug?: string;
-  estado?: string;
-  pct?: number;
-  vence?: string;
-}
-
 interface Cliente {
   id: string;
   nombre: string;
-  razonSocial?: string;
+  razon_social?: string;
   rut?: string;
-  direccion?: string;
-  ciudad?: string;
+  departamento?: string;
+  localidad?: string;
+  calle?: string;
   pais?: string;
   email?: string;
   telefono?: string;
+  whatsapp1?: string;
+  whatsapp2?: string;
   estado: "activo" | "inactivo";
-  servicios: Servicio[];
-  soNombre?: string;
-  soTelefono?: string;
-  soCI?: string;
-  soFechaNac?: string;
+  // Service Owner
+  so_nombre?: string;
+  so_apellido?: string;
+  so_telefono?: string;
+  so_ci?: string;
+  so_fecha_nac?: string;
+  so_departamento?: string;
+  so_localidad?: string;
+  so_direccion?: string;
+  // Administrador / Contacto Operativo
+  admin_nombre?: string;
+  admin_apellido?: string;
+  admin_telefono?: string;
+  admin_email?: string;
+  admin_ci?: string;
+  admin_departamento?: string;
+  admin_localidad?: string;
+  admin_direccion?: string;
 }
 
-// ─── Datos estáticos ──────────────────────────────────────────────────────────
+const serviciosPorCliente: Record<string, { tipo: string; label: string; icon: string; slug?: string; estado?: string; pct?: number; vence?: string }[]> = {
+  "centro-motos-uruguay": [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "centro-motos-uruguay", estado: "Vencido", pct: 100, vence: "10/03/2026" }],
+  "franca-comics":        [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "franca-comics", estado: "Por vencer", pct: 90, vence: "18/05/2026" }],
+  "finrel":               [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "finrel", estado: "Por vencer", pct: 72, vence: "27/06/2026" }],
+  "vistalsur":            [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "vistalsur", estado: "Por vencer", pct: 68, vence: "06/07/2026" }],
+  "espacio-chamanga":     [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "espacio-chamanga", estado: "Activo", pct: 13, vence: "02/05/2027" }],
+  "jt-de-leon":           [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "jt-de-leon", estado: "Activo", pct: 22, vence: "05/11/2027" }],
+  "pastas-florida":       [
+    { tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "pastas-florida", estado: "Activo", pct: 34, vence: "06/08/2027" },
+    { tipo: "smm", label: "SMM", icon: "📱", estado: "Activo" },
+  ],
+};
 
-const clientesData: Cliente[] = [
-  {
-    id: "centro-motos-uruguay",
-    nombre: "Centro Motos Uruguay",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "centro-motos-uruguay", estado: "Vencido", pct: 100, vence: "10/03/2026" }],
-  },
-  {
-    id: "franca-comics",
-    nombre: "Franca Comics",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "franca-comics", estado: "Por vencer", pct: 90, vence: "18/05/2026" }],
-  },
-  {
-    id: "finrel",
-    nombre: "Finrel",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "finrel", estado: "Por vencer", pct: 72, vence: "27/06/2026" }],
-  },
-  {
-    id: "vistalsur",
-    nombre: "Vistalsur",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "vistalsur", estado: "Por vencer", pct: 68, vence: "06/07/2026" }],
-  },
-  {
-    id: "espacio-chamanga",
-    nombre: "Espacio Chamangá",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "espacio-chamanga", estado: "Activo", pct: 13, vence: "02/05/2027" }],
-  },
-  {
-    id: "jt-de-leon",
-    nombre: "JT de León",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [{ tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "jt-de-leon", estado: "Activo", pct: 22, vence: "05/11/2027" }],
-  },
-  {
-    id: "pastas-florida",
-    nombre: "Pastas Florida",
-    pais: "Uruguay",
-    estado: "activo",
-    servicios: [
-      { tipo: "web-hosting", label: "Web / Hosting", icon: "🌐", slug: "pastas-florida", estado: "Activo", pct: 34, vence: "06/08/2027" },
-      { tipo: "smm", label: "SMM", icon: "📱", estado: "Activo" },
-    ],
-  },
-];
-
-// ─── Utilidades ───────────────────────────────────────────────────────────────
-
-function EditableField({ label, value, onChange, locked = false, type = "text" }: {
-  label: string; value: string; onChange: (v: string) => void; locked?: boolean; type?: string;
+function EditableField({ label, value, onChange, type = "text", placeholder = "" }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState(value);
-
-  if (locked) return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-xs text-gray-500">{label}</span>
-      <span className="text-sm text-gray-600 italic">{value || "—"}</span>
-    </div>
-  );
+  useEffect(() => { setLocal(value); }, [value]);
 
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-gray-500">{label}</span>
       {editing ? (
-        <input autoFocus type={type} value={local}
+        <input autoFocus type={type} value={local} placeholder={placeholder}
           onChange={e => setLocal(e.target.value)}
           onBlur={() => { setEditing(false); onChange(local); }}
           onKeyDown={e => e.key === "Enter" && (setEditing(false), onChange(local))}
@@ -126,16 +78,28 @@ function EditableField({ label, value, onChange, locked = false, type = "text" }
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-5">{title}</h3>
+      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{title}</h3>
+      {description && <p className="text-xs text-gray-600 mt-1 mb-5">{description}</p>}
+      {!description && <div className="mb-5" />}
       {children}
     </div>
   );
 }
 
-function CircleProgressSmall({ pct, estado }: { pct: number; estado: string }) {
+function SubSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <div className="border-t border-gray-800 pt-4 mt-4">
+      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">{title}</p>
+      {description && <p className="text-xs text-gray-600 mb-3 italic">{description}</p>}
+      {children}
+    </div>
+  );
+}
+
+function CircleProgressSmall({ pct }: { pct: number }) {
   const r = 18; const circ = 2 * Math.PI * r;
   const color = pct >= 100 ? "#f87171" : pct >= 61 ? "#fbbf24" : "#34d399";
   return (
@@ -149,14 +113,14 @@ function CircleProgressSmall({ pct, estado }: { pct: number; estado: string }) {
   );
 }
 
-// ─── Página principal ─────────────────────────────────────────────────────────
-
 export default function ClienteDetallePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const router = useRouter();
   const [userName, setUserName] = useState("");
-  const base = clientesData.find(c => c.id === slug);
-  const [cliente, setCliente] = useState<Cliente | null>(base ?? null);
+  const [cliente, setCliente] = useState<Cliente | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [guardado, setGuardado] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -164,7 +128,30 @@ export default function ClienteDetallePage({ params }: { params: Promise<{ slug:
       if (!user) { router.push("/"); return; }
       setUserName(user.user_metadata?.full_name ?? user.email ?? "");
     });
-  }, [router]);
+    supabase.from("clientes").select("*").eq("id", slug).single()
+      .then(({ data }) => { if (data) setCliente(data); setLoading(false); });
+  }, [router, slug]);
+
+  async function guardarCambios(patch: Partial<Cliente>) {
+    if (!cliente) return;
+    setSaving(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("clientes")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", slug);
+    if (!error) {
+      setCliente(p => p ? { ...p, ...patch } : p);
+      setGuardado(true);
+      setTimeout(() => setGuardado(false), 2000);
+    }
+    setSaving(false);
+  }
+
+  if (loading) return (
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <p className="text-gray-400 text-sm">Cargando cliente...</p>
+    </div>
+  );
 
   if (!cliente) return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center">
@@ -175,7 +162,11 @@ export default function ClienteDetallePage({ params }: { params: Promise<{ slug:
     </div>
   );
 
-  const update = (patch: Partial<Cliente>) => setCliente(p => p ? { ...p, ...patch } : p);
+  const servicios = serviciosPorCliente[slug] || [];
+  const soNombreCompleto = [cliente.so_nombre, cliente.so_apellido].filter(Boolean).join(" ") || "—";
+  const adminNombreCompleto = [cliente.admin_nombre, cliente.admin_apellido].filter(Boolean).join(" ");
+  const ubicacionEmpresa = [cliente.localidad, cliente.departamento, cliente.pais].filter(Boolean).join(", ");
+  const tieneAdmin = !!(cliente.admin_nombre || cliente.admin_apellido || cliente.admin_telefono);
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -188,6 +179,8 @@ export default function ClienteDetallePage({ params }: { params: Promise<{ slug:
           <span className="text-lg font-semibold">⚡ LabOS</span>
         </div>
         <div className="flex items-center gap-4">
+          {guardado && <span className="text-xs text-green-400">✅ Guardado</span>}
+          {saving && <span className="text-xs text-gray-400">Guardando...</span>}
           {userName && <span className="text-sm text-gray-400">👤 {userName}</span>}
           <button onClick={async () => { const s = createClient(); await s.auth.signOut(); router.push("/"); }}
             className="px-4 py-2 rounded-lg border border-gray-700 bg-gray-900 text-sm text-gray-300 hover:text-white hover:border-gray-500 transition-colors">
@@ -201,42 +194,41 @@ export default function ClienteDetallePage({ params }: { params: Promise<{ slug:
         {/* Hero */}
         <div className="grid grid-cols-3 gap-4">
           <div className="col-span-2 bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <div className="flex items-start justify-between">
-              <div>
-                <h1 className="text-xl font-bold text-white">👥 {cliente.nombre}</h1>
-                {cliente.razonSocial && <p className="text-sm text-gray-500 mt-0.5">{cliente.razonSocial}</p>}
-                <div className="flex items-center gap-2 mt-2">
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cliente.estado === "activo" ? "bg-green-900/40 text-green-400" : "bg-red-900/40 text-red-400"}`}>
-                    {cliente.estado === "activo" ? "Activo" : "Inactivo"}
-                  </span>
-                  {cliente.pais && <span className="text-xs text-gray-500">· {cliente.pais}</span>}
-                </div>
-              </div>
+            <h1 className="text-xl font-bold text-white">👥 {cliente.nombre}</h1>
+            {cliente.razon_social && <p className="text-sm text-gray-500 mt-0.5">{cliente.razon_social}</p>}
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cliente.estado === "activo" ? "bg-green-900/40 text-green-400" : "bg-red-900/40 text-red-400"}`}>
+                {cliente.estado === "activo" ? "Activo" : "Inactivo"}
+              </span>
+              {ubicacionEmpresa && <span className="text-xs text-gray-500">· 📍 {ubicacionEmpresa}</span>}
+              {soNombreCompleto !== "—" && <span className="text-xs text-gray-500">· Owner: {soNombreCompleto}</span>}
+              {adminNombreCompleto && <span className="text-xs text-amber-400">· Admin: {adminNombreCompleto}</span>}
             </div>
             <div className="grid grid-cols-3 gap-3 mt-4">
               <div className="bg-gray-800 rounded-lg p-3">
-                <p className="text-xs text-gray-500 mb-0.5">Email</p>
-                <p className="text-sm text-white">{cliente.email || "—"}</p>
-              </div>
-              <div className="bg-gray-800 rounded-lg p-3">
-                <p className="text-xs text-gray-500 mb-0.5">Teléfono</p>
+                <p className="text-xs text-gray-500 mb-1">📞 Teléfono</p>
                 <p className="text-sm text-white">{cliente.telefono || "—"}</p>
               </div>
               <div className="bg-gray-800 rounded-lg p-3">
-                <p className="text-xs text-gray-500 mb-0.5">Servicios activos</p>
-                <p className="text-sm font-bold text-white">{cliente.servicios.length}</p>
+                <p className="text-xs text-gray-500 mb-1">💬 WhatsApp 1</p>
+                <p className="text-sm text-green-400">{cliente.whatsapp1 || "—"}</p>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-3">
+                <p className="text-xs text-gray-500 mb-1">💬 WhatsApp 2</p>
+                <p className="text-sm text-green-400">{cliente.whatsapp2 || "—"}</p>
               </div>
             </div>
           </div>
 
-          {/* Acciones */}
           <div className="col-span-1 bg-gray-900 border border-gray-800 rounded-xl p-5 flex flex-col gap-3">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Acciones</p>
             <button className="w-full flex items-center gap-2.5 px-4 py-3 rounded-lg border border-gray-700 bg-gray-800 text-sm text-gray-300 hover:text-white hover:border-gray-500 transition-colors text-left">
               <span>📄</span><span>Descargar ficha</span>
             </button>
-            <button className="w-full flex items-center gap-2.5 px-4 py-3 rounded-lg border border-red-800 bg-red-900/20 text-sm text-red-400 hover:bg-red-900/30 transition-colors text-left">
-              <span>⛔</span><span>Desactivar cliente</span>
+            <button onClick={() => guardarCambios({ estado: cliente.estado === "activo" ? "inactivo" : "activo" })}
+              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-lg border text-sm transition-colors text-left ${cliente.estado === "activo" ? "border-red-800 bg-red-900/20 text-red-400 hover:bg-red-900/30" : "border-green-800 bg-green-900/20 text-green-400 hover:bg-green-900/30"}`}>
+              <span>{cliente.estado === "activo" ? "⛔" : "✅"}</span>
+              <span>{cliente.estado === "activo" ? "Desactivar cliente" : "Activar cliente"}</span>
             </button>
           </div>
         </div>
@@ -244,65 +236,110 @@ export default function ClienteDetallePage({ params }: { params: Promise<{ slug:
         {/* Datos de la empresa */}
         <Section title="🏢 Datos de la empresa">
           <div className="grid grid-cols-2 gap-4">
-            <EditableField label="Nombre comercial" value={cliente.nombre} onChange={v => update({ nombre: v })} />
-            <EditableField label="Razón social" value={cliente.razonSocial || ""} onChange={v => update({ razonSocial: v })} />
-            <EditableField label="RUT" value={cliente.rut || ""} onChange={v => update({ rut: v })} />
-            <EditableField label="País" value={cliente.pais || ""} onChange={v => update({ pais: v })} />
-            <EditableField label="Ciudad" value={cliente.ciudad || ""} onChange={v => update({ ciudad: v })} />
-            <EditableField label="Dirección" value={cliente.direccion || ""} onChange={v => update({ direccion: v })} />
-            <EditableField label="Email" value={cliente.email || ""} onChange={v => update({ email: v })} type="email" />
-            <EditableField label="Teléfono" value={cliente.telefono || ""} onChange={v => update({ telefono: v })} type="tel" />
+            <EditableField label="Nombre comercial" value={cliente.nombre} onChange={v => guardarCambios({ nombre: v })} />
+            <EditableField label="Razón social" value={cliente.razon_social || ""} onChange={v => guardarCambios({ razon_social: v })} />
+            <EditableField label="RUT" value={cliente.rut || ""} onChange={v => guardarCambios({ rut: v })} />
+            <EditableField label="Email" value={cliente.email || ""} onChange={v => guardarCambios({ email: v })} type="email" />
           </div>
+
+          <SubSection title="📍 Ubicación de la empresa">
+            <div className="grid grid-cols-3 gap-4">
+              <EditableField label="País" value={cliente.pais || ""} onChange={v => guardarCambios({ pais: v })} placeholder="Ej: Uruguay" />
+              <EditableField label="Departamento" value={cliente.departamento || ""} onChange={v => guardarCambios({ departamento: v })} placeholder="Ej: Montevideo" />
+              <EditableField label="Localidad" value={cliente.localidad || ""} onChange={v => guardarCambios({ localidad: v })} placeholder="Ej: Ciudad Vieja" />
+              <div className="col-span-3">
+                <EditableField label="Calle / Dirección" value={cliente.calle || ""} onChange={v => guardarCambios({ calle: v })} placeholder="Ej: Av. 18 de Julio 1234" />
+              </div>
+            </div>
+          </SubSection>
+
+          <SubSection title="📞 Teléfonos y WhatsApp">
+            <div className="grid grid-cols-3 gap-4">
+              <EditableField label="Teléfono fijo" value={cliente.telefono || ""} onChange={v => guardarCambios({ telefono: v })} type="tel" placeholder="+598 2XXX XXXX" />
+              <EditableField label="WhatsApp 1" value={cliente.whatsapp1 || ""} onChange={v => guardarCambios({ whatsapp1: v })} type="tel" placeholder="+598 9XX XXX XXX" />
+              <EditableField label="WhatsApp 2" value={cliente.whatsapp2 || ""} onChange={v => guardarCambios({ whatsapp2: v })} type="tel" placeholder="+598 9XX XXX XXX" />
+            </div>
+          </SubSection>
+          <p className="text-xs text-gray-600 mt-4 italic">Los cambios se guardan automáticamente al salir de cada campo</p>
         </Section>
 
         {/* Service Owner */}
-        <Section title="👤 Service Owner — Persona que contrata">
+        <Section title="👤 Service Owner" description="Titular del servicio — quien contrata y es responsable legal">
           <div className="grid grid-cols-2 gap-4">
-            <EditableField label="Nombre y Apellido" value={cliente.soNombre || ""} onChange={v => update({ soNombre: v })} />
-            <EditableField label="Teléfono" value={cliente.soTelefono || ""} onChange={v => update({ soTelefono: v })} />
-            <EditableField label="Cédula de Identidad" value={cliente.soCI || ""} onChange={v => update({ soCI: v })} />
-            <EditableField label="Fecha de nacimiento" value={cliente.soFechaNac || ""} onChange={v => update({ soFechaNac: v })} type="date" />
+            <EditableField label="Nombre" value={cliente.so_nombre || ""} onChange={v => guardarCambios({ so_nombre: v })} placeholder="Ej: Juan" />
+            <EditableField label="Apellido" value={cliente.so_apellido || ""} onChange={v => guardarCambios({ so_apellido: v })} placeholder="Ej: García" />
+            <EditableField label="Teléfono" value={cliente.so_telefono || ""} onChange={v => guardarCambios({ so_telefono: v })} type="tel" />
+            <EditableField label="Cédula de Identidad" value={cliente.so_ci || ""} onChange={v => guardarCambios({ so_ci: v })} />
+            <EditableField label="Fecha de nacimiento" value={cliente.so_fecha_nac || ""} onChange={v => guardarCambios({ so_fecha_nac: v })} type="date" />
           </div>
+
+          <SubSection title="📍 Ubicación" description="Completar si difiere de la ubicación de la empresa">
+            <div className="grid grid-cols-3 gap-4">
+              <EditableField label="Departamento" value={cliente.so_departamento || ""} onChange={v => guardarCambios({ so_departamento: v })} placeholder="Ej: Maldonado" />
+              <EditableField label="Localidad" value={cliente.so_localidad || ""} onChange={v => guardarCambios({ so_localidad: v })} placeholder="Ej: Punta del Este" />
+              <EditableField label="Dirección" value={cliente.so_direccion || ""} onChange={v => guardarCambios({ so_direccion: v })} />
+            </div>
+          </SubSection>
+        </Section>
+
+        {/* Administrador / Contacto Operativo */}
+        <Section title="🔑 Administrador / Contacto Operativo"
+          description="Persona que gestiona el servicio en nombre del Service Owner. Ej: Marcelo Buscio para JT de León.">
+          <div className="grid grid-cols-2 gap-4">
+            <EditableField label="Nombre" value={cliente.admin_nombre || ""} onChange={v => guardarCambios({ admin_nombre: v })} placeholder="Ej: Marcelo" />
+            <EditableField label="Apellido" value={cliente.admin_apellido || ""} onChange={v => guardarCambios({ admin_apellido: v })} placeholder="Ej: Buscio" />
+            <EditableField label="Teléfono" value={cliente.admin_telefono || ""} onChange={v => guardarCambios({ admin_telefono: v })} type="tel" />
+            <EditableField label="Email" value={cliente.admin_email || ""} onChange={v => guardarCambios({ admin_email: v })} type="email" />
+            <EditableField label="Cédula de Identidad" value={cliente.admin_ci || ""} onChange={v => guardarCambios({ admin_ci: v })} />
+          </div>
+
+          <SubSection title="📍 Ubicación" description="Completar si difiere de la ubicación de la empresa">
+            <div className="grid grid-cols-3 gap-4">
+              <EditableField label="Departamento" value={cliente.admin_departamento || ""} onChange={v => guardarCambios({ admin_departamento: v })} />
+              <EditableField label="Localidad" value={cliente.admin_localidad || ""} onChange={v => guardarCambios({ admin_localidad: v })} />
+              <EditableField label="Dirección" value={cliente.admin_direccion || ""} onChange={v => guardarCambios({ admin_direccion: v })} />
+            </div>
+          </SubSection>
+
+          {!tieneAdmin && (
+            <p className="text-xs text-gray-600 mt-3 italic">Sin administrador asignado. Completá los campos si el cliente tiene una persona delegada.</p>
+          )}
         </Section>
 
         {/* Servicios contratados */}
         <Section title="🔗 Servicios contratados">
-          <div className="space-y-3">
-            {cliente.servicios.map((s, i) => {
-              const estadoCls = s.estado === "Vencido"
-                ? "bg-red-900/40 text-red-400"
-                : s.estado === "Por vencer"
-                ? "bg-yellow-900/40 text-yellow-400"
-                : "bg-green-900/40 text-green-400";
-
-              return (
-                <div key={i} className="flex items-center justify-between p-4 rounded-lg border border-gray-700 bg-gray-800/50 hover:bg-gray-800 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{s.icon}</span>
-                    <div>
-                      <p className="font-medium text-white">{s.label}</p>
-                      {s.vence && <p className="text-xs text-gray-500 mt-0.5">Vence: {s.vence}</p>}
+          {servicios.length === 0 ? (
+            <p className="text-sm text-gray-500">Sin servicios contratados aún.</p>
+          ) : (
+            <div className="space-y-3">
+              {servicios.map((s, i) => {
+                const estadoCls = s.estado === "Vencido" ? "bg-red-900/40 text-red-400"
+                  : s.estado === "Por vencer" ? "bg-yellow-900/40 text-yellow-400"
+                  : "bg-green-900/40 text-green-400";
+                return (
+                  <div key={i} className="flex items-center justify-between p-4 rounded-lg border border-gray-700 bg-gray-800/50 hover:bg-gray-800 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{s.icon}</span>
+                      <div>
+                        <p className="font-medium text-white">{s.label}</p>
+                        {s.vence && <p className="text-xs text-gray-500 mt-0.5">Vence: {s.vence}</p>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {s.estado && <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${estadoCls}`}>{s.estado}</span>}
+                      {s.pct !== undefined && <CircleProgressSmall pct={s.pct} />}
+                      {s.slug && (
+                        <button onClick={() => router.push(`/dashboard/web-hosting/cliente/${s.slug}`)}
+                          className="text-xs px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300 hover:text-white hover:border-gray-400 transition-colors">
+                          Ver ficha →
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {s.estado && (
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${estadoCls}`}>{s.estado}</span>
-                    )}
-                    {s.pct !== undefined && <CircleProgressSmall pct={s.pct} estado={s.estado || ""} />}
-                    {s.slug && (
-                      <button
-                        onClick={() => s.tipo === "web-hosting"
-                          ? window.location.href = `/dashboard/web-hosting/cliente/${s.slug}`
-                          : null}
-                        className="text-xs px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300 hover:text-white hover:border-gray-400 transition-colors">
-                        Ver ficha →
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </Section>
 
       </main>

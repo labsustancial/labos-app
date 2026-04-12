@@ -46,15 +46,8 @@ function CircleProgress({ pct }: { pct: number | null }) {
     <div className="flex items-center justify-center">
       <svg width="72" height="72" viewBox="0 0 72 72">
         <circle cx="36" cy="36" r={r} fill="none" stroke="#1f2937" strokeWidth="7" />
-        <circle
-          cx="36" cy="36" r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth="7"
-          strokeDasharray={`${stroke} ${circ}`}
-          strokeLinecap="round"
-          transform="rotate(-90 36 36)"
-        />
+        <circle cx="36" cy="36" r={r} fill="none" stroke={color} strokeWidth="7"
+          strokeDasharray={`${stroke} ${circ}`} strokeLinecap="round" transform="rotate(-90 36 36)" />
         <text x="36" y="41" textAnchor="middle" fontSize="13" fontWeight="bold" fill="white">
           {pct === null ? "—" : `${displayPct}%`}
         </text>
@@ -64,69 +57,13 @@ function CircleProgress({ pct }: { pct: number | null }) {
 }
 
 const clients = [
-  {
-    name: "Centro Motos Uruguay",
-    hosting: "Siteground",
-    dominio: "Gestión del Cliente",
-    plan: "Anual Starter",
-    inicio: "2025-03-10",
-    vence: "2026-03-10",
-    nota: "⚠️ Renovar a Bi-Anual",
-  },
-  {
-    name: "Franca Comics",
-    hosting: "Siteground",
-    dominio: "Hosting Montevideo",
-    plan: "Anual Starter",
-    inicio: "2025-05-18",
-    vence: "2026-05-18",
-    nota: "⚠️ Renovar a Bi-Anual",
-  },
-  {
-    name: "Finrel",
-    hosting: "Siteground",
-    dominio: "Hosting Montevideo",
-    plan: "Hosting Bi-Anual",
-    inicio: "2024-06-27",
-    vence: "2026-06-27",
-    nota: null,
-  },
-  {
-    name: "Vistalsur",
-    hosting: "Siteground",
-    dominio: "Siteground",
-    plan: "Hosting Bi-Anual",
-    inicio: "2024-07-06",
-    vence: "2026-07-06",
-    nota: null,
-  },
-  {
-    name: "Espacio Chamangá",
-    hosting: "Siteground",
-    dominio: "Hosting Montevideo",
-    plan: "Hosting Bi-Anual",
-    inicio: "2025-05-02",
-    vence: "2027-05-02",
-    nota: null,
-  },
-  {
-    name: "JT de León",
-    hosting: "Siteground",
-    dominio: "Gestión del Cliente",
-    plan: "Hosting Bi-Anual",
-    inicio: "2025-11-05",
-    vence: "2027-11-05",
-    nota: null,
-  },
-  {
-    name: "Pastas Florida",
-    hosting: "Siteground",
-    dominio: "Hosting Montevideo",
-    plan: "Hosting Bi-Anual",
-    inicio: "2025-08-06",
-    vence: "2027-08-06",
-    nota: null,
-  },
+  { id: "centro-motos-uruguay", name: "Centro Motos Uruguay", hosting: "Siteground", dominio: "Gestión del Cliente", plan: "Anual Starter", inicio: "2025-03-10", vence: "2026-03-10", nota: "⚠️ Renovar a Bi-Anual" },
+  { id: "franca-comics", name: "Franca Comics", hosting: "Siteground", dominio: "Hosting Montevideo", plan: "Anual Starter", inicio: "2025-05-18", vence: "2026-05-18", nota: "⚠️ Renovar a Bi-Anual" },
+  { id: "finrel", name: "Finrel", hosting: "Siteground", dominio: "Hosting Montevideo", plan: "Hosting Bi-Anual", inicio: "2024-06-27", vence: "2026-06-27", nota: null },
+  { id: "vistalsur", name: "Vistalsur", hosting: "Siteground", dominio: "Siteground", plan: "Hosting Bi-Anual", inicio: "2024-07-06", vence: "2026-07-06", nota: null },
+  { id: "espacio-chamanga", name: "Espacio Chamangá", hosting: "Siteground", dominio: "Hosting Montevideo", plan: "Hosting Bi-Anual", inicio: "2025-05-02", vence: "2027-05-02", nota: null },
+  { id: "jt-de-leon", name: "JT de León", hosting: "Siteground", dominio: "Gestión del Cliente", plan: "Hosting Bi-Anual", inicio: "2025-11-05", vence: "2027-11-05", nota: null },
+  { id: "pastas-florida", name: "Pastas Florida", hosting: "Siteground", dominio: "Hosting Montevideo", plan: "Hosting Bi-Anual", inicio: "2025-08-06", vence: "2027-08-06", nota: null },
 ];
 
 const FILTERS = ["Todos", "Activo", "Por vencer", "Vencido", "Sin fecha"];
@@ -148,21 +85,15 @@ export default function WebHostingPage() {
   });
 
   const vencidos = clients.filter(c => (calcProgress(c.inicio, c.vence) ?? 0) >= 100).length;
-  const porVencer = clients.filter(c => {
-    const p = calcProgress(c.inicio, c.vence);
-    return p !== null && p >= 61 && p < 100;
-  }).length;
+  const porVencer = clients.filter(c => { const p = calcProgress(c.inicio, c.vence); return p !== null && p >= 61 && p < 100; }).length;
   const dominiosGestionados = clients.filter(c => c.dominio === "Gestión del Cliente").length;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* Header */}
       <header className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="text-gray-400 hover:text-white text-sm flex items-center gap-1 transition-colors"
-          >
+          <button onClick={() => router.push("/dashboard")}
+            className="text-gray-400 hover:text-white text-sm flex items-center gap-1 transition-colors">
             ← Volver al dashboard
           </button>
           <span className="text-gray-600">|</span>
@@ -171,13 +102,11 @@ export default function WebHostingPage() {
       </header>
 
       <main className="px-6 py-8 max-w-7xl mx-auto">
-        {/* Título */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold">🌐 Web / Hosting</h2>
           <p className="text-gray-400 mt-1 text-sm">Gestión de sitios web y servicios de hosting activos</p>
         </div>
 
-        {/* Métricas */}
         <div className="grid grid-cols-4 gap-4 mb-8">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
             <p className="text-gray-400 text-xs mb-1">Total Clientes</p>
@@ -197,36 +126,23 @@ export default function WebHostingPage() {
           </div>
         </div>
 
-        {/* Búsqueda y filtros en la misma línea */}
         <div className="flex items-center gap-3 mb-6">
           <div className="relative flex-1">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-            <input
-              type="text"
-              placeholder="Buscar cliente..."
-              value={search}
+            <input type="text" placeholder="Buscar cliente..." value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-            />
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500" />
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {FILTERS.map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                  filter === f
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-900 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500"
-                }`}
-              >
+              <button key={f} onClick={() => setFilter(f)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${filter === f ? "bg-blue-600 text-white" : "bg-gray-900 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500"}`}>
                 {f}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Tabla */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -246,9 +162,13 @@ export default function WebHostingPage() {
                 const days = daysLabel(c.vence);
                 const estado = getEstado(pct);
                 return (
-                  <tr key={i} className="border-b border-gray-800 hover:bg-gray-800/40 transition-colors">
+                  <tr key={i}
+                    onClick={() => router.push(`/dashboard/web-hosting/cliente/${c.id}`)}
+                    className="border-b border-gray-800 hover:bg-gray-800/40 transition-colors cursor-pointer group">
                     <td className="px-5 py-4">
-                      <p className="font-medium text-white">{c.name}</p>
+                      <p className="font-medium text-white group-hover:text-blue-400 transition-colors">
+                        {c.name}
+                      </p>
                       {c.nota && (
                         <span className="inline-block mt-1 text-xs bg-red-900/40 text-red-400 px-2 py-0.5 rounded-full">
                           {c.nota}
@@ -262,13 +182,9 @@ export default function WebHostingPage() {
                       {c.vence ? (
                         <>
                           <p className="text-gray-300">
-                            {new Date(c.vence + "T12:00:00").toLocaleDateString("es-UY", {
-                              day: "2-digit", month: "short", year: "numeric"
-                            })}
+                            {new Date(c.vence + "T12:00:00").toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" })}
                           </p>
-                          {days && (
-                            <p className={`text-xs mt-1 ${days.color}`}>{days.text}</p>
-                          )}
+                          {days && <p className={`text-xs mt-1 ${days.color}`}>{days.text}</p>}
                         </>
                       ) : (
                         <span className="text-gray-600">—</span>
@@ -287,7 +203,6 @@ export default function WebHostingPage() {
               })}
             </tbody>
           </table>
-
           {filtered.length === 0 && (
             <div className="text-center py-12 text-gray-500 text-sm">
               No se encontraron clientes con ese criterio

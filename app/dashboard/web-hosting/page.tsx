@@ -102,22 +102,43 @@ export default function WebHostingPage() {
       </header>
 
       <main className="px-6 py-8 max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold">🌐 Web / Hosting</h2>
-          <p className="text-gray-400 mt-1 text-sm">Gestión de sitios web y servicios de hosting activos</p>
+        
+        {/* HEADER CON BOTONES */}
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">🌐 Web / Hosting</h2>
+            <p className="text-gray-400 mt-1 text-sm">Gestión de servicios activos</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push("/dashboard/web-hosting/planes")}
+              className="px-4 py-2 rounded-lg border border-gray-700 bg-gray-900 text-sm text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
+            >
+              Planes
+            </button>
+
+            <button
+              onClick={() => router.push("/dashboard/web-hosting/nuevo")}
+              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-medium text-white transition-colors"
+            >
+              + Nuevo servicio
+            </button>
+          </div>
         </div>
 
+        {/* INDICADORES */}
         <div className="grid grid-cols-4 gap-4 mb-8">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-400 text-xs mb-1">Total Clientes</p>
+            <p className="text-gray-400 text-xs mb-1">Total Servicios</p>
             <p className="text-2xl font-bold text-white">{clients.length}</p>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-400 text-xs mb-1">Hosting Activo</p>
+            <p className="text-gray-400 text-xs mb-1">Servicios Activos</p>
             <p className="text-2xl font-bold text-green-400">{clients.length}</p>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-400 text-xs mb-1">Dominios Gestionados</p>
+            <p className="text-gray-400 text-xs mb-1">Dominios Cliente</p>
             <p className="text-2xl font-bold text-blue-400">{dominiosGestionados}</p>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
@@ -129,7 +150,7 @@ export default function WebHostingPage() {
         <div className="flex items-center gap-3 mb-6">
           <div className="relative flex-1">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-            <input type="text" placeholder="Buscar cliente..." value={search}
+            <input type="text" placeholder="Buscar servicio..." value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-gray-900 border border-gray-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500" />
           </div>
@@ -147,7 +168,7 @@ export default function WebHostingPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wide">
-                <th className="text-left px-5 py-3">Cliente</th>
+                <th className="text-left px-5 py-3">Servicio</th>
                 <th className="text-left px-5 py-3">Hosting</th>
                 <th className="text-left px-5 py-3">Dominio</th>
                 <th className="text-left px-5 py-3">Plan</th>
@@ -205,7 +226,7 @@ export default function WebHostingPage() {
           </table>
           {filtered.length === 0 && (
             <div className="text-center py-12 text-gray-500 text-sm">
-              No se encontraron clientes con ese criterio
+              No se encontraron servicios con ese criterio
             </div>
           )}
         </div>

@@ -126,6 +126,10 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
     setLoading(true); setError("");
     try {
       const supabase = createClient();
+      const codigoActualizado = form.titulo.trim() !== evento.titulo
+  ? generarCodigo(form.titulo.trim()) + "-" + evento.id.slice(0, 4)
+  : evento.codigo
+      
       const fechaInicio = form.fecha_inicio
         ? new Date(`${form.fecha_inicio}T${form.hora_inicio || "00:00"}:00`).toISOString() : null;
       const fechaFin = form.fecha_fin
@@ -133,6 +137,7 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
 
       const { data, error: err } = await supabase.from("eventos").update({
         titulo: form.titulo.trim(),
+        codigo: codigoActualizado,
         descripcion: form.descripcion || null,
         cliente_id: form.cliente_id,
         portada_url: form.portada_url || null,

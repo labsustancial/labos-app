@@ -99,11 +99,19 @@ export default function EventoStatsPage({ params }: { params: Promise<{ codigo: 
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.from("eventos").select("id, titulo, clave, fecha_inicio, fecha_fin, clientes(nombre)")
+  
+    // Verificar si hay sesión activa (admin) — entra directo
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setAutenticado(true);
+    });
+  
+    // Cargar el evento
+    supabase.from("eventos")
+      .select("id, titulo, clave, fecha_inicio, fecha_fin, clientes(nombre)")
       .eq("codigo", codigo).single()
       .then(({ data, error }) => {
-        if (error || !data) { setNotFound(true); }
-        else { setEvento(data as any); }
+        if (error || !data) setNotFound(true);
+        else setEvento(data as any);
         setLoading(false);
       });
   }, [codigo]);
@@ -111,12 +119,8 @@ export default function EventoStatsPage({ params }: { params: Promise<{ codigo: 
   async function handleLogin() {
     if (!evento) return;
     if (claveIngresada.toUpperCase() === evento.clave) {
-      setAutenticado(true); setErrorClave("");
-      // Cargar registros reales
-      const supabase = createClient();
-      const { data } = await supabase.from("registros_evento")
-        .select("*").eq("evento_id", evento.id).order("created_at", { ascending: true });
-      if (data) setRegistros(data);
+      setAutenticado(true); // ← los registros se cargan solos por el useEffect
+      setErrorClave("");
     } else {
       setErrorClave("Clave incorrecta. Verificá los datos enviados a tu email.");
     }

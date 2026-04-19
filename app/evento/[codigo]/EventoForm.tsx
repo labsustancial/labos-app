@@ -15,6 +15,9 @@ interface Evento {
   departamento?: string;
   estado: string;
   codigo: string;
+  es_gratuito: boolean;
+  precio?: number;
+  moneda?: string;
   clientes?: { nombre: string };
 }
 
@@ -43,8 +46,6 @@ function formatFecha(f?: string) {
     fechaCorta: d.toLocaleDateString("es-UY", { day: "2-digit", month: "long", year: "numeric" }),
   };
 }
-
-// ─── Botón compartir ──────────────────────────────────────────────────────────
 
 function BotonCompartir({ titulo, url }: { titulo: string; url: string }) {
   const [copiado, setCopiado] = useState(false);
@@ -79,8 +80,6 @@ function BotonCompartir({ titulo, url }: { titulo: string; url: string }) {
     </div>
   );
 }
-
-// ─── Componente principal ──────────────────────────────────────────────────────
 
 export default function EventoForm({ codigo }: { codigo: string }) {
   const [evento, setEvento] = useState<Evento | null>(null);
@@ -127,28 +126,26 @@ export default function EventoForm({ codigo }: { codigo: string }) {
 
       if (err) throw err;
 
-
       // Enviar email de confirmación — falla silenciosamente
-const fechaInfo = formatFecha(evento!.fecha_inicio);
-fetch("/api/enviar-confirmacion-registro", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    nombre: form.nombre.trim(),
-    apellido: form.apellido.trim(),
-    email: form.email.trim(),
-    eventoTitulo: evento!.titulo,
-    eventoFecha: fechaInfo?.fechaCorta || null,
-    eventoHora: fechaInfo?.hora || null,
-    eventoCalle: evento!.calle || null,
-    eventoCiudad: evento!.ciudad || null,
-    eventoDepartamento: evento!.departamento || null,
-    registroId: registro.id,
-  }),
-}).catch(e => console.error("Error enviando email:", e));
+      const fechaInfo = formatFecha(evento!.fecha_inicio);
+      fetch("/api/enviar-confirmacion-registro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: form.nombre.trim(),
+          apellido: form.apellido.trim(),
+          email: form.email.trim(),
+          eventoTitulo: evento!.titulo,
+          eventoFecha: fechaInfo?.fechaCorta || null,
+          eventoHora: fechaInfo?.hora || null,
+          eventoCalle: evento!.calle || null,
+          eventoCiudad: evento!.ciudad || null,
+          eventoDepartamento: evento!.departamento || null,
+          registroId: registro.id,
+        }),
+      }).catch(e => console.error("Error enviando email:", e));
 
-setEnviado(true);
-
+      setEnviado(true);
     } catch (e: any) {
       setError("Error al registrar. Intentá de nuevo.");
     } finally {
@@ -200,7 +197,7 @@ setEnviado(true);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero / Portada */}
+      {/* Hero */}
       {evento.portada_url ? (
         <div className="relative h-56 sm:h-72">
           <img src={evento.portada_url} alt={evento.titulo} className="w-full h-full object-cover" />
@@ -209,6 +206,11 @@ setEnviado(true);
             <div>
               <p className="text-white/70 text-sm mb-1">{evento.clientes?.nombre}</p>
               <h1 className="text-2xl sm:text-3xl font-bold text-white">{evento.titulo}</h1>
+              {!evento.es_gratuito && evento.precio && (
+                <span className="inline-block mt-1 text-sm font-semibold text-amber-400">
+                  {evento.moneda} {evento.precio.toLocaleString("es-UY")}
+                </span>
+              )}
             </div>
             {urlActual && <BotonCompartir titulo={evento.titulo} url={urlActual} />}
           </div>
@@ -219,6 +221,11 @@ setEnviado(true);
             <div>
               <p className="text-gray-400 text-sm mb-1">{evento.clientes?.nombre}</p>
               <h1 className="text-2xl font-bold text-white">{evento.titulo}</h1>
+              {!evento.es_gratuito && evento.precio && (
+                <span className="inline-block mt-1 text-sm font-semibold text-amber-400">
+                  {evento.moneda} {evento.precio.toLocaleString("es-UY")}
+                </span>
+              )}
             </div>
             {urlActual && <BotonCompartir titulo={evento.titulo} url={urlActual} />}
           </div>
@@ -241,6 +248,17 @@ setEnviado(true);
               <span>{[evento.calle, evento.ciudad, evento.departamento].filter(Boolean).join(", ")}</span>
             </div>
           )}
+          {/* Precio visible en la tarjeta de info */}
+          <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
+            <span>🎟</span>
+            {evento.es_gratuito ? (
+              <span className="text-sm font-semibold text-green-600">Entrada gratuita</span>
+            ) : (
+              <span className="text-sm font-semibold text-gray-900">
+                {evento.moneda} {evento.precio?.toLocaleString("es-UY")}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Formulario */}
@@ -281,7 +299,7 @@ setEnviado(true);
             </div>
             <button onClick={handleSubmit} disabled={guardando}
               className="w-full py-3.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-sm font-semibold text-white transition-colors disabled:opacity-50">
-              {guardando ? "Registrando..." : "Confirmar mi registro →"}
+              {guardando ? "Registrando..." : evento.es_gratuito ? "Confirmar mi registro →" : `Registrarme — ${evento.moneda} ${evento.precio?.toLocaleString("es-UY")} →`}
             </button>
           </div>
         </div>

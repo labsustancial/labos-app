@@ -25,6 +25,10 @@ interface Evento {
   clave: string;
   clave_visible?: boolean;
   created_at: string;
+  es_gratuito: boolean;
+  precio?: number;
+  moneda: string;
+  emails_admin: string[];
   clientes?: { nombre: string; email?: string };
   _registros_count?: number;
 }
@@ -56,6 +60,11 @@ function formatFechaHora(f?: string) {
     " · " + d.toLocaleTimeString("es-UY", { hour: "2-digit", minute: "2-digit" }) + "hs";
 }
 
+function formatPrecio(precio?: number, moneda?: string) {
+  if (!precio) return "";
+  return `${moneda || "UYU"} ${precio.toLocaleString("es-UY")}`;
+}
+
 const estadoCls: Record<string, string> = {
   activo: "bg-green-900/40 text-green-400 border-green-800/30",
   borrador: "bg-yellow-900/40 text-yellow-400 border-yellow-800/30",
@@ -69,7 +78,14 @@ const origenLabels: Record<string, string> = {
   google: "🔍 Google", recomendacion: "🤝 Recomendación", cliente: "⭐ Soy cliente",
 };
 
-// ─── Menú 3 puntos de la tarjeta ──────────────────────────────────────────────
+const DEPARTAMENTOS_UY = [
+  "Artigas", "Canelones", "Cerro Largo", "Colonia", "Durazno",
+  "Flores", "Florida", "Lavalleja", "Maldonado", "Montevideo",
+  "Paysandú", "Río Negro", "Rivera", "Rocha", "Salto",
+  "San José", "Soriano", "Tacuarembó", "Treinta y Tres",
+];
+
+// ─── Menú 3 puntos ────────────────────────────────────────────────────────────
 
 function MenuTarjeta({ evento, onCambiarEstado, onEliminar }: {
   evento: Evento;
@@ -127,8 +143,7 @@ function MenuTarjeta({ evento, onCambiarEstado, onEliminar }: {
 // ─── Tarjeta de evento ────────────────────────────────────────────────────────
 
 function TarjetaEvento({ evento, base, onAbrir, onCambiarEstado, onEliminar, onCopiar, copiado }: {
-  evento: Evento;
-  base: string;
+  evento: Evento; base: string;
   onAbrir: () => void;
   onCambiarEstado: (id: string, estado: "activo" | "borrador" | "finalizado") => void;
   onEliminar: (id: string) => void;
@@ -140,7 +155,6 @@ function TarjetaEvento({ evento, base, onAbrir, onCambiarEstado, onEliminar, onC
 
   return (
     <div className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl overflow-hidden transition-all group">
-      {/* Portada o header */}
       <div onClick={onAbrir} className="cursor-pointer">
         {evento.portada_url ? (
           <div className="relative h-36">
@@ -148,7 +162,12 @@ function TarjetaEvento({ evento, base, onAbrir, onCambiarEstado, onEliminar, onC
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
             <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between">
-              <p className="text-xs text-gray-300">{evento.clientes?.nombre}</p>
+              <div>
+                <p className="text-xs text-gray-300">{evento.clientes?.nombre}</p>
+                {!evento.es_gratuito && evento.precio && (
+                  <span className="text-xs font-medium text-amber-400">{formatPrecio(evento.precio, evento.moneda)}</span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${estadoCls[evento.estado]}`}>
                   {estadoLabel[evento.estado]}
@@ -168,40 +187,36 @@ function TarjetaEvento({ evento, base, onAbrir, onCambiarEstado, onEliminar, onC
             </div>
           </div>
         )}
-
-        {/* Título y descripción */}
         <div className="px-4 pt-4 pb-2">
-          <h3 className="font-semibold text-white group-hover:text-blue-400 transition-colors mb-1">
-            {evento.titulo}
-          </h3>
-          {evento.descripcion && (
-            <p className="text-xs text-gray-500 line-clamp-2">{evento.descripcion}</p>
-          )}
+          <h3 className="font-semibold text-white group-hover:text-blue-400 transition-colors mb-1">{evento.titulo}</h3>
+          {evento.descripcion && <p className="text-xs text-gray-500 line-clamp-2">{evento.descripcion}</p>}
         </div>
       </div>
 
       {/* Tira inferior */}
       <div className="px-4 pb-3 pt-2 border-t border-gray-800 flex items-center justify-between gap-2">
-        {/* Registros */}
-        <span className="text-sm font-bold text-white">
-          {evento._registros_count || 0}
-          <span className="text-xs font-normal text-gray-400 ml-1">registros</span>
-        </span>
-
-        {/* Acciones rápidas */}
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-bold text-white">
+            {evento._registros_count || 0}
+            <span className="text-xs font-normal text-gray-400 ml-1">registros</span>
+          </span>
+          {!evento.es_gratuito && evento.precio && (
+            <span className="text-xs text-amber-400 font-medium">{formatPrecio(evento.precio, evento.moneda)}</span>
+          )}
+          {evento.es_gratuito && (
+            <span className="text-xs text-gray-600">Gratuito</span>
+          )}
+        </div>
         <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
           <a href={urlFormulario} target="_blank"
-            title="Ver formulario público"
             className="px-2.5 py-1.5 rounded-lg border border-gray-700 text-xs text-gray-300 hover:text-white hover:border-gray-500 transition-colors">
             Ver evento
           </a>
           <a href={urlStats} target="_blank"
-            title="Ver estadísticas"
             className="px-2.5 py-1.5 rounded-lg border border-gray-700 text-xs text-gray-300 hover:text-white hover:border-gray-500 transition-colors">
             Stats
           </a>
           <button onClick={() => onCopiar(urlFormulario, evento.id)}
-            title="Copiar link público"
             className="px-2.5 py-1.5 rounded-lg border border-gray-700 text-xs text-gray-300 hover:text-white hover:border-gray-500 transition-colors">
             {copiado === evento.id ? "✅" : "📋 Link"}
           </button>
@@ -218,18 +233,12 @@ interface EventoForm {
   fecha_inicio: string; hora_inicio: string; fecha_fin: string; hora_fin: string;
   calle: string; ciudad: string; departamento: string;
   estado: "activo" | "borrador" | "finalizado";
+  es_gratuito: boolean; precio: string; moneda: string;
+  emails_admin: string[];
 }
 
-const DEPARTAMENTOS_UY = [
-  "Artigas", "Canelones", "Cerro Largo", "Colonia", "Durazno",
-  "Flores", "Florida", "Lavalleja", "Maldonado", "Montevideo",
-  "Paysandú", "Río Negro", "Rivera", "Rocha", "Salto",
-  "San José", "Soriano", "Tacuarembó", "Treinta y Tres",
-];
-
 function EventoModal({ evento, clientes, onClose, onGuardado }: {
-  evento: Evento;
-  clientes: Cliente[];
+  evento: Evento; clientes: Cliente[];
   onClose: () => void;
   onGuardado: (e: Evento) => void;
 }) {
@@ -249,13 +258,31 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
     ciudad: evento.ciudad || "",
     departamento: evento.departamento || "",
     estado: evento.estado,
+    es_gratuito: evento.es_gratuito ?? true,
+    precio: evento.precio?.toString() || "",
+    moneda: evento.moneda || "UYU",
+    emails_admin: evento.emails_admin || [],
   });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [nuevoEmail, setNuevoEmail] = useState("");
 
-  const set = (k: keyof EventoForm, v: string) => setForm(p => ({ ...p, [k]: v }));
+  const set = (k: keyof EventoForm, v: any) => setForm(p => ({ ...p, [k]: v }));
   const clienteSeleccionado = clientes.find(c => c.id === form.cliente_id);
   const inp = "w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors";
+
+  function agregarEmail() {
+    const email = nuevoEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) return;
+    if (form.emails_admin.includes(email)) return;
+    set("emails_admin", [...form.emails_admin, email]);
+    setNuevoEmail("");
+  }
+
+  function quitarEmail(email: string) {
+    set("emails_admin", form.emails_admin.filter(e => e !== email));
+  }
 
   async function handlePortadaChange(url: string) {
     set("portada_url", url);
@@ -269,6 +296,8 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
     if (!form.titulo.trim()) { setError("El título es obligatorio"); return; }
     if (!form.cliente_id) { setError("Seleccioná un cliente"); return; }
     if (!form.fecha_inicio) { setError("La fecha de inicio es obligatoria"); return; }
+    if (!form.es_gratuito && !form.precio) { setError("Ingresá el precio del evento"); return; }
+
     setLoading(true); setError("");
     try {
       const supabase = createClient();
@@ -279,6 +308,13 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
         ? new Date(`${form.fecha_inicio}T${form.hora_inicio || "00:00"}:00`).toISOString() : null;
       const fechaFin = form.fecha_fin
         ? new Date(`${form.fecha_fin}T${form.hora_fin || "00:00"}:00`).toISOString() : null;
+
+      // Incluir email del cliente si tiene y no está ya en la lista
+      let emailsAdmin = [...form.emails_admin];
+      if (clienteSeleccionado?.email && !emailsAdmin.includes(clienteSeleccionado.email)) {
+        // No lo agregamos automáticamente — el admin decide
+      }
+
       const { data, error: err } = await supabase.from("eventos").update({
         titulo: form.titulo.trim(),
         codigo: codigoActualizado,
@@ -291,9 +327,14 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
         ciudad: form.ciudad || null,
         departamento: form.departamento || null,
         estado: form.estado,
+        es_gratuito: form.es_gratuito,
+        precio: form.es_gratuito ? null : parseFloat(form.precio) || null,
+        moneda: form.es_gratuito ? null : form.moneda,
+        emails_admin: emailsAdmin,
       }).eq("id", evento.id).select("*, clientes(nombre, email)").single();
+
       if (err) throw err;
-      onGuardado({ ...data, clave_visible: false });
+      onGuardado({ ...data, clave_visible: false, emails_admin: data.emails_admin || [] });
       onClose();
     } catch (e: any) {
       setError(e.message || "Error al guardar");
@@ -303,7 +344,7 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
   }
 
   async function handleEliminar() {
-    if (!confirm("¿Estás seguro que querés eliminar este evento? Esta acción no se puede deshacer.")) return;
+    if (!confirm("¿Estás seguro que querés eliminar este evento?")) return;
     const supabase = createClient();
     await supabase.from("eventos").delete().eq("id", evento.id);
     onClose();
@@ -323,6 +364,7 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
         <div className="px-6 py-5 space-y-5">
           {error && <div className="bg-red-900/30 border border-red-700/40 rounded-lg px-4 py-3 text-sm text-red-300">⚠️ {error}</div>}
 
+          {/* Info básica */}
           <div>
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">📋 Información del evento</h3>
             <div className="space-y-3">
@@ -354,11 +396,89 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
             </div>
           </div>
 
+          {/* Imagen de portada */}
           <div>
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">🖼️ Imagen de portada</h3>
             <ImagenPortada eventoId={evento.id} value={form.portada_url} onChange={handlePortadaChange} />
           </div>
 
+          {/* Precio */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">💰 Precio</h3>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <button onClick={() => set("es_gratuito", true)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${form.es_gratuito ? "bg-green-900/40 text-green-400 border-green-800/30" : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500"}`}>
+                  🎟 Gratuito
+                </button>
+                <button onClick={() => set("es_gratuito", false)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${!form.es_gratuito ? "bg-amber-900/40 text-amber-400 border-amber-800/30" : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500"}`}>
+                  💳 De pago
+                </button>
+              </div>
+              {!form.es_gratuito && (
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 block mb-1.5">Precio *</label>
+                    <input type="number" value={form.precio} onChange={e => set("precio", e.target.value)}
+                      placeholder="0" min="0" className={inp} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1.5">Moneda</label>
+                    <select value={form.moneda} onChange={e => set("moneda", e.target.value)} className={inp}>
+                      <option value="UYU">UYU</option>
+                      <option value="USD">USD</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Emails de administración */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">📧 Emails de administración</h3>
+            <p className="text-xs text-gray-500 mb-3">
+              Estos emails recibirán el acceso a las estadísticas del evento.
+            </p>
+
+            {/* Emails guardados */}
+            {form.emails_admin.length > 0 && (
+              <div className="space-y-2 mb-3">
+                {form.emails_admin.map(email => (
+                  <div key={email} className="flex items-center gap-2 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg">
+                    <span className="text-xs text-blue-400 flex-1">{email}</span>
+                    <button onClick={() => quitarEmail(email)}
+                      className="text-xs text-gray-500 hover:text-red-400 transition-colors">
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Agregar email del cliente */}
+            {clienteSeleccionado?.email && !form.emails_admin.includes(clienteSeleccionado.email) && (
+              <button onClick={() => set("emails_admin", [...form.emails_admin, clienteSeleccionado.email!])}
+                className="text-xs text-blue-400 hover:text-blue-300 transition-colors mb-3 block">
+                + Agregar email del cliente ({clienteSeleccionado.email})
+              </button>
+            )}
+
+            {/* Input para agregar email manual */}
+            <div className="flex gap-2">
+              <input value={nuevoEmail} onChange={e => setNuevoEmail(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && agregarEmail()}
+                type="email" placeholder="email@ejemplo.com"
+                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" />
+              <button onClick={agregarEmail}
+                className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm text-white transition-colors">
+                + Agregar
+              </button>
+            </div>
+          </div>
+
+          {/* Fechas */}
           <div>
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">📅 Fechas y horarios</h3>
             <div className="grid grid-cols-2 gap-3">
@@ -381,6 +501,7 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
             </div>
           </div>
 
+          {/* Dirección */}
           <div>
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">📍 Dirección</h3>
             <div className="space-y-3">
@@ -405,6 +526,7 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
             </div>
           </div>
 
+          {/* Estado */}
           <div>
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Estado</h3>
             <div className="flex gap-2">
@@ -439,11 +561,10 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
   );
 }
 
-// ─── Detalle del evento (tabs) ─────────────────────────────────────────────────
+// ─── Detalle del evento (tabs) ────────────────────────────────────────────────
 
 function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActualizado }: {
-  evento: Evento;
-  clientes: Cliente[];
+  evento: Evento; clientes: Cliente[];
   onVolver: () => void;
   onToggleClave: (id: string) => void;
   onEventoActualizado: (e: Evento) => void;
@@ -452,11 +573,11 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
   const [registros, setRegistros] = useState<any[]>([]);
   const [loadingReg, setLoadingReg] = useState(true);
   const [copiado, setCopiado] = useState<string | null>(null);
-  const [emailDestino, setEmailDestino] = useState("");
   const [mailEnviado, setMailEnviado] = useState(false);
+  const [enviando, setEnviando] = useState(false);
   const [showEditar, setShowEditar] = useState(false);
 
-  const base = typeof window !== "undefined" ? window.location.origin : "https://labos-app.vercel.app";
+  const base = typeof window !== "undefined" ? window.location.origin : "https://labos.sustancial.uy";
   const urlFormulario = `${base}/evento/${evento.codigo}`;
   const urlStats = `${urlFormulario}/stats`;
 
@@ -484,6 +605,33 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
     URL.revokeObjectURL(url);
   }
 
+  async function handleEnviarAcceso() {
+    const emails = evento.emails_admin || [];
+    if (emails.length === 0) { alert("No hay emails de administración configurados para este evento."); return; }
+    setEnviando(true);
+    try {
+      await Promise.all(emails.map(email =>
+        fetch("/api/enviar-acceso-evento", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            eventoTitulo: evento.titulo,
+            urlFormulario,
+            urlStats,
+            clave: evento.clave,
+          }),
+        })
+      ));
+      setMailEnviado(true);
+      setTimeout(() => setMailEnviado(false), 3000);
+    } catch (e) {
+      console.error("Error enviando acceso:", e);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   const origenCount = registros.reduce((acc: Record<string, number>, r) => {
     if (r.origen) acc[r.origen] = (acc[r.origen] || 0) + 1; return acc;
   }, {});
@@ -500,6 +648,7 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
         ← Volver a eventos
       </button>
 
+      {/* Header */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden mb-6">
         {evento.portada_url ? (
           <div className="relative h-36">
@@ -509,6 +658,9 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
               <div>
                 <p className="text-xs text-gray-300 mb-0.5">{evento.clientes?.nombre}</p>
                 <h2 className="text-xl font-bold text-white">{evento.titulo}</h2>
+                {!evento.es_gratuito && evento.precio && (
+                  <span className="text-sm font-medium text-amber-400">{formatPrecio(evento.precio, evento.moneda)}</span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${estadoCls[evento.estado]}`}>
@@ -526,6 +678,9 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
             <div>
               <p className="text-xs text-gray-400">{evento.clientes?.nombre}</p>
               <h2 className="text-lg font-bold text-white">{evento.titulo}</h2>
+              {!evento.es_gratuito && evento.precio && (
+                <span className="text-sm font-medium text-amber-400">{formatPrecio(evento.precio, evento.moneda)}</span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${estadoCls[evento.estado]}`}>
@@ -554,6 +709,7 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
         </div>
       </div>
 
+      {/* Tabs */}
       <div className="flex gap-2 border-b border-gray-800 mb-6">
         {([
           { key: "acceso", label: "🔑 Acceso y links" },
@@ -568,6 +724,7 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
 
       {tab === "acceso" && (
         <div className="space-y-4 max-w-2xl">
+          {/* URLs */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
             <div>
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">🌐 URL pública del formulario</h3>
@@ -599,6 +756,7 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
             </div>
           </div>
 
+          {/* Clave */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">🔑 Clave de acceso a estadísticas</h3>
             <div className="flex items-center gap-3 mb-3">
@@ -621,30 +779,30 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
             <p className="text-xs text-gray-500">La clave no se puede regenerar una vez creada.</p>
           </div>
 
+          {/* Emails de administración */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">📧 Enviar acceso por email</h3>
-            {evento.clientes?.email && (
-              <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg">
-                <span className="text-xs text-gray-500">Email del cliente:</span>
-                <span className="text-xs text-blue-400">{evento.clientes.email}</span>
-                <button onClick={() => setEmailDestino(evento.clientes!.email!)}
-                  className="ml-auto text-xs text-gray-500 hover:text-gray-300 transition-colors">
-                  Usar este →
-                </button>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">📧 Emails de administración</h3>
+
+            {evento.emails_admin?.length > 0 ? (
+              <div className="space-y-2 mb-4">
+                {evento.emails_admin.map(email => (
+                  <div key={email} className="flex items-center gap-2 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg">
+                    <span className="text-xs text-blue-400">{email}</span>
+                  </div>
+                ))}
               </div>
+            ) : (
+              <p className="text-xs text-gray-500 mb-4">Sin emails configurados. Editá el evento para agregar.</p>
             )}
-            <div className="flex gap-2">
-              <input value={emailDestino} onChange={e => setEmailDestino(e.target.value)}
-                placeholder={evento.clientes?.email || "email@cliente.com"} type="email"
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500" />
-              <button onClick={() => { setMailEnviado(true); setTimeout(() => setMailEnviado(false), 3000); }}
-                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-medium text-white transition-colors whitespace-nowrap">
-                📨 Enviar
-              </button>
-            </div>
-            {mailEnviado && <p className="text-xs text-green-400 mt-2">✅ Email enviado</p>}
+
+            <button onClick={handleEnviarAcceso} disabled={enviando || evento.emails_admin?.length === 0}
+              className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-medium text-white transition-colors disabled:opacity-40">
+              {enviando ? "Enviando..." : `📨 Enviar acceso a ${evento.emails_admin?.length || 0} email${evento.emails_admin?.length !== 1 ? "s" : ""}`}
+            </button>
+            {mailEnviado && <p className="text-xs text-green-400 mt-2">✅ Acceso enviado correctamente</p>}
           </div>
 
+          {/* CSV */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">📥 Exportar datos</h3>
             <p className="text-xs text-gray-500 mb-3">{registros.length} registros disponibles.</p>
@@ -711,7 +869,7 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
   );
 }
 
-// ─── Página principal ──────────────────────────────────────────────────────────
+// ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function GeneradorEventosPage() {
   const router = useRouter();
@@ -725,7 +883,7 @@ export default function GeneradorEventosPage() {
   const [filtro, setFiltro] = useState<"todos" | "activo" | "borrador" | "finalizado">("todos");
   const [copiado, setCopiado] = useState<string | null>(null);
 
-  const base = typeof window !== "undefined" ? window.location.origin : "https://labos-app.vercel.app";
+  const base = typeof window !== "undefined" ? window.location.origin : "https://labos.sustancial.uy";
 
   async function cargarEventos() {
     setLoading(true);
@@ -736,7 +894,13 @@ export default function GeneradorEventosPage() {
       const { data: counts } = await supabase.from("registros_evento").select("evento_id");
       const countMap: Record<string, number> = {};
       counts?.forEach(r => { countMap[r.evento_id] = (countMap[r.evento_id] || 0) + 1; });
-      setEventos(data.map(e => ({ ...e, clave_visible: false, _registros_count: countMap[e.id] || 0 })));
+      setEventos(data.map(e => ({
+        ...e,
+        clave_visible: false,
+        _registros_count: countMap[e.id] || 0,
+        es_gratuito: e.es_gratuito ?? true,
+        emails_admin: e.emails_admin || [],
+      })));
     }
     setLoading(false);
   }
@@ -757,10 +921,10 @@ export default function GeneradorEventosPage() {
       const codigo = generarCodigo(titulo) + "-" + Date.now().toString().slice(-4);
       const clave = generarClave();
       const { data, error } = await supabase.from("eventos").insert({
-        titulo, codigo, clave, estado: "borrador",
+        titulo, codigo, clave, estado: "borrador", es_gratuito: true, emails_admin: [],
       }).select("*, clientes(nombre, email)").single();
       if (error) throw error;
-      const nuevo = { ...data, clave_visible: false, _registros_count: 0 };
+      const nuevo = { ...data, clave_visible: false, _registros_count: 0, emails_admin: [] };
       setEventos(p => [nuevo, ...p]);
       setEventoEnModal(nuevo);
       setShowModal(true);
@@ -790,15 +954,13 @@ export default function GeneradorEventosPage() {
   }
 
   function handleModalClose() {
-    setShowModal(false);
-    setEventoEnModal(null);
+    setShowModal(false); setEventoEnModal(null);
     cargarEventos();
   }
 
   function handleEventoGuardado(eventoActualizado: Evento) {
     setEventos(p => p.map(e => e.id === eventoActualizado.id ? { ...eventoActualizado, clave_visible: e.clave_visible } : e));
-    setShowModal(false);
-    setEventoEnModal(null);
+    setShowModal(false); setEventoEnModal(null);
   }
 
   function toggleClave(id: string) {
@@ -896,16 +1058,12 @@ export default function GeneradorEventosPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {filtrados.map(evento => (
-              <TarjetaEvento
-                key={evento.id}
-                evento={evento}
-                base={base}
+              <TarjetaEvento key={evento.id} evento={evento} base={base}
                 onAbrir={() => setEventoSeleccionado(evento)}
                 onCambiarEstado={handleCambiarEstado}
                 onEliminar={handleEliminarDesdeMenu}
                 onCopiar={handleCopiar}
-                copiado={copiado}
-              />
+                copiado={copiado} />
             ))}
           </div>
         )}

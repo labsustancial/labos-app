@@ -9,6 +9,27 @@ import { ImagenPortada } from "@/components/ImagenPortada";
 
 interface Cliente { id: string; nombre: string; email?: string; }
 
+interface OrigenOpcion {
+  id: string;
+  evento_id: string;
+  valor: string;
+  label: string;
+  emoji?: string;
+  orden: number;
+  activo: boolean;
+}
+
+interface CampoAdicional {
+  id: string;
+  evento_id: string;
+  tipo: "texto" | "email" | "telefono" | "select" | "checkbox" | "textarea";
+  label: string;
+  placeholder?: string;
+  requerido: boolean;
+  orden: number;
+  opciones?: string[];
+}
+
 interface Evento {
   id: string;
   titulo: string;
@@ -561,6 +582,249 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
   );
 }
 
+// ─── Constructor de formulario ────────────────────────────────────────────────
+
+function ConstructorFormulario({ evento }: { evento: Evento }) {
+  const [campos, setCampos] = useState<CampoAdicional[]>([]);
+  const [origenes, setOrigenes] = useState<OrigenOpcion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  const [nuevoCampo, setNuevoCampo] = useState<Partial<CampoAdicional> | null>(null);
+  const [nuevoOrigen, setNuevoOrigen] = useState<{ valor: string; label: string; emoji: string } | null>(null);
+
+  const inp = "w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors";
+
+  const tipoLabels: Record<string, string> = {
+    texto: "Texto corto", email: "Email", telefono: "Teléfono",
+    select: "Selección", checkbox: "Checkbox", textarea: "Texto largo",
+  };
+
+  useEffect(() => {
+    const supabase = createClient();
+    Promise.all([
+      supabase.from("evento_campos").select("*").eq("evento_id", evento.id).order("orden"),
+      supabase.from("origen_opciones").select("*").eq("evento_id", evento.id).order("orden"),
+    ]).then(([{ data: c }, { data: o }]) => {
+      if (c) setCampos(c);
+      if (o) setOrigenes(o);
+      setLoading(false);
+    });
+  }, [evento.id]);
+
+  async function guardarCampo() {
+    if (!nuevoCampo?.label?.trim() || !nuevoCampo.tipo) return;
+    setGuardando(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.from("evento_campos").insert({
+      evento_id: evento.id,
+      tipo: nuevoCampo.tipo,
+      label: nuevoCampo.label.trim(),
+      placeholder: nuevoCampo.placeholder || null,
+      requerido: nuevoCampo.requerido ?? false,
+      orden: campos.length,
+      opciones: nuevoCampo.opciones || null,
+    }).select().single();
+    if (!error && data) { setCampos(p => [...p, data]); setNuevoCampo(null); }
+    setGuardando(false);
+  }
+
+  async function eliminarCampo(id: string) {
+    const supabase = createClient();
+    await supabase.from("evento_campos").delete().eq("id", id);
+    setCampos(p => p.filter(c => c.id !== id));
+  }
+
+  async function toggleRequerido(campo: CampoAdicional) {
+    const supabase = createClient();
+    await supabase.from("evento_campos").update({ requerido: !campo.requerido }).eq("id", campo.id);
+    setCampos(p => p.map(c => c.id === campo.id ? { ...c, requerido: !c.requerido } : c));
+  }
+
+  async function guardarOrigen() {
+    if (!nuevoOrigen?.valor?.trim() || !nuevoOrigen.label?.trim()) return;
+    setGuardando(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.from("origen_opciones").insert({
+      evento_id: evento.id,
+      valor: nuevoOrigen.valor.trim().toLowerCase().replace(/\s+/g, "_"),
+      label: nuevoOrigen.label.trim(),
+      emoji: nuevoOrigen.emoji || null,
+      orden: origenes.length,
+      activo: true,
+    }).select().single();
+    if (!error && data) { setOrigenes(p => [...p, data]); setNuevoOrigen(null); }
+    setGuardando(false);
+  }
+
+  async function toggleOrigenActivo(origen: OrigenOpcion) {
+    const supabase = createClient();
+    await supabase.from("origen_opciones").update({ activo: !origen.activo }).eq("id", origen.id);
+    setOrigenes(p => p.map(o => o.id === origen.id ? { ...o, activo: !o.activo } : o));
+  }
+
+  async function eliminarOrigen(id: string) {
+    const supabase = createClient();
+    await supabase.from("origen_opciones").delete().eq("id", id);
+    setOrigenes(p => p.filter(o => o.id !== id));
+  }
+
+  if (loading) return <div className="text-center py-8 text-gray-500 text-sm">Cargando formulario...</div>;
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      {/* Campos del formulario */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">📋 Campos del formulario</h3>
+
+        {/* Campos base (siempre presentes) */}
+        <div className="space-y-2 mb-4">
+          {[
+            { label: "Nombre", tipo: "texto", requerido: true },
+            { label: "Apellido", tipo: "texto", requerido: true },
+            { label: "Email", tipo: "email", requerido: true },
+            { label: "Teléfono", tipo: "telefono", requerido: false },
+          ].map(c => (
+            <div key={c.label} className="flex items-center gap-3 px-3 py-2.5 bg-gray-800/50 border border-gray-700/50 rounded-lg opacity-60">
+              <span className="text-xs text-gray-500 w-20">{tipoLabels[c.tipo]}</span>
+              <span className="text-sm text-gray-300 flex-1">{c.label}</span>
+              {c.requerido && <span className="text-xs text-blue-400">Requerido</span>}
+              <span className="text-xs text-gray-600">Base</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Campos adicionales */}
+        {campos.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {campos.map(campo => (
+              <div key={campo.id} className="flex items-center gap-3 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg">
+                <span className="text-xs text-gray-500 w-20">{tipoLabels[campo.tipo]}</span>
+                <span className="text-sm text-white flex-1">{campo.label}</span>
+                <button onClick={() => toggleRequerido(campo)}
+                  className={`text-xs px-2 py-0.5 rounded border transition-colors ${campo.requerido ? "text-blue-400 border-blue-800/40 bg-blue-900/20" : "text-gray-500 border-gray-700"}`}>
+                  {campo.requerido ? "Requerido" : "Opcional"}
+                </button>
+                <button onClick={() => eliminarCampo(campo.id)}
+                  className="text-gray-600 hover:text-red-400 transition-colors text-xs">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Formulario nuevo campo */}
+        {nuevoCampo ? (
+          <div className="border border-gray-700 rounded-xl p-4 space-y-3 bg-gray-800/30">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-500 block mb-1.5">Tipo de campo</label>
+                <select value={nuevoCampo.tipo || ""} onChange={e => setNuevoCampo(p => ({ ...p, tipo: e.target.value as CampoAdicional["tipo"] }))} className={inp}>
+                  <option value="">Seleccioná</option>
+                  {Object.entries(tipoLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1.5">Etiqueta</label>
+                <input value={nuevoCampo.label || ""} onChange={e => setNuevoCampo(p => ({ ...p, label: e.target.value }))}
+                  placeholder="Ej: Empresa" className={inp} />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1.5">Placeholder (opcional)</label>
+              <input value={nuevoCampo.placeholder || ""} onChange={e => setNuevoCampo(p => ({ ...p, placeholder: e.target.value }))}
+                placeholder="Ej: Ingresá el nombre de tu empresa" className={inp} />
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={nuevoCampo.requerido ?? false}
+                onChange={e => setNuevoCampo(p => ({ ...p, requerido: e.target.checked }))} className="rounded" />
+              <span className="text-sm text-gray-300">Campo requerido</span>
+            </label>
+            <div className="flex gap-2">
+              <button onClick={guardarCampo} disabled={guardando}
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm text-white transition-colors disabled:opacity-50">
+                {guardando ? "Guardando..." : "✅ Agregar campo"}
+              </button>
+              <button onClick={() => setNuevoCampo(null)}
+                className="px-4 py-2 rounded-lg border border-gray-700 text-sm text-gray-400 hover:text-white transition-colors">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setNuevoCampo({ requerido: false })}
+            className="w-full py-2.5 border border-dashed border-gray-700 rounded-xl text-sm text-gray-500 hover:text-gray-300 hover:border-gray-500 transition-colors">
+            + Agregar campo personalizado
+          </button>
+        )}
+      </div>
+
+      {/* Opciones de origen */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">📣 ¿Cómo nos conociste?</h3>
+        <p className="text-xs text-gray-500 mb-4">
+          {origenes.length === 0
+            ? "Usando las opciones predeterminadas del sistema."
+            : `${origenes.filter(o => o.activo).length} opciones activas.`}
+        </p>
+
+        {origenes.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {origenes.map(origen => (
+              <div key={origen.id} className="flex items-center gap-3 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg">
+                <span className="text-base">{origen.emoji}</span>
+                <span className="text-sm text-white flex-1">{origen.label}</span>
+                <span className="text-xs text-gray-600 font-mono">{origen.valor}</span>
+                <button onClick={() => toggleOrigenActivo(origen)}
+                  className={`text-xs px-2 py-0.5 rounded border transition-colors ${origen.activo ? "text-green-400 border-green-800/40 bg-green-900/20" : "text-gray-500 border-gray-700"}`}>
+                  {origen.activo ? "Activo" : "Oculto"}
+                </button>
+                <button onClick={() => eliminarOrigen(origen.id)}
+                  className="text-gray-600 hover:text-red-400 transition-colors text-xs">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {nuevoOrigen ? (
+          <div className="border border-gray-700 rounded-xl p-4 space-y-3 bg-gray-800/30">
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-gray-500 block mb-1.5">Emoji</label>
+                <input value={nuevoOrigen.emoji} onChange={e => setNuevoOrigen(p => p ? { ...p, emoji: e.target.value } : p)}
+                  placeholder="🎯" className={inp} maxLength={2} />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-gray-500 block mb-1.5">Etiqueta</label>
+                <input value={nuevoOrigen.label} onChange={e => setNuevoOrigen(p => p ? { ...p, label: e.target.value } : p)}
+                  placeholder="Ej: YouTube" className={inp} />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1.5">Valor (identificador)</label>
+              <input value={nuevoOrigen.valor} onChange={e => setNuevoOrigen(p => p ? { ...p, valor: e.target.value } : p)}
+                placeholder="Ej: youtube" className={`${inp} font-mono`} />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={guardarOrigen} disabled={guardando}
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm text-white transition-colors disabled:opacity-50">
+                {guardando ? "Guardando..." : "✅ Agregar opción"}
+              </button>
+              <button onClick={() => setNuevoOrigen(null)}
+                className="px-4 py-2 rounded-lg border border-gray-700 text-sm text-gray-400 hover:text-white transition-colors">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setNuevoOrigen({ valor: "", label: "", emoji: "" })}
+            className="w-full py-2.5 border border-dashed border-gray-700 rounded-xl text-sm text-gray-500 hover:text-gray-300 hover:border-gray-500 transition-colors">
+            + Agregar opción de origen
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Detalle del evento (tabs) ────────────────────────────────────────────────
 
 function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActualizado }: {
@@ -569,7 +833,7 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
   onToggleClave: (id: string) => void;
   onEventoActualizado: (e: Evento) => void;
 }) {
-  const [tab, setTab] = useState<"acceso" | "registros">("acceso");
+  const [tab, setTab] = useState<"acceso" | "registros" | "formulario">("acceso");
   const [registros, setRegistros] = useState<any[]>([]);
   const [loadingReg, setLoadingReg] = useState(true);
   const [copiado, setCopiado] = useState<string | null>(null);
@@ -714,6 +978,7 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
         {([
           { key: "acceso", label: "🔑 Acceso y links" },
           { key: "registros", label: `📋 Registros (${registros.length})` },
+          { key: "formulario", label: "🧩 Formulario" },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === t.key ? "border-blue-500 text-white" : "border-transparent text-gray-400 hover:text-white"}`}>
@@ -812,6 +1077,10 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
             </button>
           </div>
         </div>
+      )}
+
+      {tab === "formulario" && (
+        <ConstructorFormulario evento={evento} />
       )}
 
       {tab === "registros" && (

@@ -127,26 +127,28 @@ export default function EventoForm({ codigo }: { codigo: string }) {
 
       if (err) throw err;
 
-      // Enviar email de confirmación
-      const fechaInfo = formatFecha(evento!.fecha_inicio);
-      await fetch("/api/enviar-confirmacion-registro", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre: form.nombre.trim(),
-          apellido: form.apellido.trim(),
-          email: form.email.trim(),
-          eventoTitulo: evento!.titulo,
-          eventoFecha: fechaInfo?.fechaCorta || null,
-          eventoHora: fechaInfo?.hora || null,
-          eventoCalle: evento!.calle || null,
-          eventoCiudad: evento!.ciudad || null,
-          eventoDepartamento: evento!.departamento || null,
-          registroId: registro.id,
-        }),
-      });
 
-      setEnviado(true);
+      // Enviar email de confirmación — falla silenciosamente
+const fechaInfo = formatFecha(evento!.fecha_inicio);
+fetch("/api/enviar-confirmacion-registro", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    nombre: form.nombre.trim(),
+    apellido: form.apellido.trim(),
+    email: form.email.trim(),
+    eventoTitulo: evento!.titulo,
+    eventoFecha: fechaInfo?.fechaCorta || null,
+    eventoHora: fechaInfo?.hora || null,
+    eventoCalle: evento!.calle || null,
+    eventoCiudad: evento!.ciudad || null,
+    eventoDepartamento: evento!.departamento || null,
+    registroId: registro.id,
+  }),
+}).catch(e => console.error("Error enviando email:", e));
+
+setEnviado(true);
+
     } catch (e: any) {
       setError("Error al registrar. Intentá de nuevo.");
     } finally {

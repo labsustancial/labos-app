@@ -13,7 +13,7 @@ export async function getOrgId(): Promise<string> {
 
   if (error || !data?.org_id) throw new Error("No se pudo obtener el org_id");
 
-  cachedOrgId = data.org_id;
+  cachedOrgId = data.org_id as string;
   return cachedOrgId;
 }
 

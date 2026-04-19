@@ -15,6 +15,7 @@ interface Cliente {
   pais?: string;
   email?: string;
   telefono?: string;
+  telefono2?: string;
   whatsapp1?: string;
   whatsapp2?: string;
   estado: "activo" | "inactivo";
@@ -36,6 +37,8 @@ interface Cliente {
   admin_departamento?: string;
   admin_localidad?: string;
   admin_direccion?: string;
+  // Legales
+  legal_notas?: string;
 }
 
 const serviciosPorCliente: Record<string, { tipo: string; label: string; icon: string; slug?: string; estado?: string; pct?: number; vence?: string }[]> = {
@@ -51,8 +54,8 @@ const serviciosPorCliente: Record<string, { tipo: string; label: string; icon: s
   ],
 };
 
-function EditableField({ label, value, onChange, type = "text", placeholder = "" }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string;
+function EditableField({ label, value, onChange, type = "text", placeholder = "", multiline = false }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; multiline?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState(value);
@@ -62,11 +65,19 @@ function EditableField({ label, value, onChange, type = "text", placeholder = ""
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-gray-500">{label}</span>
       {editing ? (
-        <input autoFocus type={type} value={local} placeholder={placeholder}
-          onChange={e => setLocal(e.target.value)}
-          onBlur={() => { setEditing(false); onChange(local); }}
-          onKeyDown={e => e.key === "Enter" && (setEditing(false), onChange(local))}
-          className="text-sm text-white bg-gray-800 border border-blue-500 rounded px-2 py-1 focus:outline-none w-full" />
+        multiline ? (
+          <textarea autoFocus value={local} placeholder={placeholder}
+            onChange={e => setLocal(e.target.value)}
+            onBlur={() => { setEditing(false); onChange(local); }}
+            rows={3}
+            className="text-sm text-white bg-gray-800 border border-blue-500 rounded px-2 py-1 focus:outline-none w-full resize-none" />
+        ) : (
+          <input autoFocus type={type} value={local} placeholder={placeholder}
+            onChange={e => setLocal(e.target.value)}
+            onBlur={() => { setEditing(false); onChange(local); }}
+            onKeyDown={e => e.key === "Enter" && (setEditing(false), onChange(local))}
+            className="text-sm text-white bg-gray-800 border border-blue-500 rounded px-2 py-1 focus:outline-none w-full" />
+        )
       ) : (
         <button onClick={() => { setLocal(value); setEditing(true); }}
           className="text-left text-sm text-gray-200 hover:text-white border border-transparent hover:border-gray-600 rounded px-2 py-1 -ml-2 transition-colors flex items-center gap-1.5 group">
@@ -110,6 +121,50 @@ function CircleProgressSmall({ pct }: { pct: number }) {
         strokeLinecap="round" transform="rotate(-90 22 22)" />
       <text x="22" y="26" textAnchor="middle" fontSize="9" fontWeight="700" fill="white">{Math.min(pct, 100)}%</text>
     </svg>
+  );
+}
+
+function TyCPreview({ cliente }: { cliente: Cliente }) {
+  const responsable = cliente.razon_social || cliente.nombre;
+  const rut = cliente.rut;
+  const domicilio = [cliente.calle, cliente.localidad, cliente.departamento, cliente.pais || "Uruguay"].filter(Boolean).join(", ");
+  const email = cliente.email;
+
+  const faltanDatos = !rut || !cliente.calle || !email;
+
+  return (
+    <div className="mt-4 rounded-lg border border-gray-700 bg-gray-800/50 p-4">
+      <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Preview — Texto del modal T&C</p>
+      {faltanDatos && (
+        <div className="mb-3 flex items-start gap-2 bg-yellow-900/20 border border-yellow-800/40 rounded-lg px-3 py-2">
+          <span className="text-yellow-400 text-xs mt-0.5">⚠️</span>
+          <p className="text-xs text-yellow-400">
+            Faltan datos para completar el texto legal:{" "}
+            {[!rut && "RUT", !cliente.calle && "Dirección", !email && "Email"].filter(Boolean).join(", ")}.
+          </p>
+        </div>
+      )}
+      <p className="text-xs text-gray-300 leading-relaxed">
+        Los datos personales recabados serán tratados por{" "}
+        <span className="text-white font-medium">{responsable}</span>
+        {rut && <>, RUT <span className="text-white font-medium">{rut}</span></>}
+        {domicilio && <>, con domicilio en <span className="text-white font-medium">{domicilio}</span></>}
+        , con la finalidad de gestionar su participación en el evento y, si lo autoriza, el envío de comunicaciones comerciales y promociones relacionadas.
+      </p>
+      <p className="text-xs text-gray-300 leading-relaxed mt-2">
+        Podés ejercer tus derechos de acceso, rectificación, eliminación y oposición{" "}
+        {email
+          ? <>escribiendo a <span className="text-white font-medium">{email}</span></>
+          : <span className="text-yellow-400">— email de contacto no configurado —</span>
+        }
+        , en cumplimiento de la Ley 18.331 de Protección de Datos Personales de la República Oriental del Uruguay.
+      </p>
+      {cliente.legal_notas && (
+        <p className="text-xs text-gray-400 leading-relaxed mt-2 border-t border-gray-700 pt-2 italic">
+          {cliente.legal_notas}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -304,6 +359,27 @@ export default function ClienteDetallePage({ params }: { params: Promise<{ slug:
           {!tieneAdmin && (
             <p className="text-xs text-gray-600 mt-3 italic">Sin administrador asignado. Completá los campos si el cliente tiene una persona delegada.</p>
           )}
+        </Section>
+
+        {/* Legales */}
+        <Section title="⚖️ Legales" description="Información utilizada como responsable del tratamiento de datos en formularios de marketing (Ley 18.331 Uruguay).">
+          <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg px-4 py-3 mb-4">
+            <p className="text-xs text-gray-400 leading-relaxed">
+              El texto de Términos y Condiciones se genera automáticamente usando los datos de{" "}
+              <span className="text-gray-300">Razón social, RUT, Email y Ubicación</span> cargados en la sección{" "}
+              <span className="text-gray-300">Datos de la empresa</span>. Completá esos campos para que el preview sea correcto.
+            </p>
+          </div>
+
+          <EditableField
+            label="Notas legales adicionales (opcional)"
+            value={cliente.legal_notas || ""}
+            onChange={v => guardarCambios({ legal_notas: v })}
+            placeholder="Ej: Los datos serán compartidos con el organizador del evento según acuerdo vigente."
+            multiline
+          />
+
+          <TyCPreview cliente={cliente} />
         </Section>
 
         {/* Servicios contratados */}

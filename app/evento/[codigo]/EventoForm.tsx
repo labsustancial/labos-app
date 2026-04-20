@@ -67,6 +67,12 @@ interface ResponsableLegal {
   legalNotas?: string | null;
 }
 
+interface OrganizadorPublico {
+  id: string;
+  nombre: string;
+  telefono?: string | null;
+}
+
 type ModalLegal = "terms" | "marketing" | null;
 
 function formatFecha(f?: string) {
@@ -307,6 +313,7 @@ export default function EventoForm({ codigo }: { codigo: string }) {
 
   const [origenOpciones, setOrigenOpciones] = useState<OrigenOpcion[]>([]);
   const [eventoCampos, setEventoCampos] = useState<EventoCampo[]>([]);
+  const [organizadores, setOrganizadores] = useState<OrganizadorPublico[]>([]);
 
   const [form, setForm] = useState({
     nombre: "",
@@ -385,6 +392,13 @@ export default function EventoForm({ codigo }: { codigo: string }) {
         .eq("event_id", ev.id)
         .order("orden");
       setEventoCampos(campos || []);
+
+      const { data: organizadoresData } = await supabase
+        .from("evento_organizadores")
+        .select("id, nombre, telefono")
+        .eq("evento_id", ev.id)
+        .order("orden");
+      setOrganizadores(organizadoresData || []);
 
       if (ev.capacidad_maxima) {
         const { count } = await supabase
@@ -500,6 +514,7 @@ export default function EventoForm({ codigo }: { codigo: string }) {
           nombre: form.nombre.trim(),
           apellido: form.apellido.trim(),
           email: form.email.trim(),
+          eventoId: evento.id,
           eventoTitulo: evento.titulo,
           eventoFecha: fechaInfo?.fechaCorta || null,
           eventoHora: fechaInfo?.hora || null,
@@ -693,6 +708,19 @@ export default function EventoForm({ codigo }: { codigo: string }) {
             <p className="mt-1 text-sm text-gray-400">
               📍 {[evento.calle, evento.localidad, evento.departamento].filter(Boolean).join(", ")}
             </p>
+          ) : null}
+          {organizadores.length > 0 ? (
+            <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-left">
+              <p className="text-sm font-medium text-gray-700">📞 Contacto del organizador</p>
+              <div className="mt-2 space-y-1">
+                {organizadores.map((organizador) => (
+                  <p key={organizador.id} className="text-sm text-gray-500">
+                    {organizador.nombre}
+                    {organizador.telefono ? ` — ${organizador.telefono}` : ""}
+                  </p>
+                ))}
+              </div>
+            </div>
           ) : null}
         </div>
       </div>

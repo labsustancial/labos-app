@@ -11,7 +11,7 @@ interface Evento {
   fecha_inicio?: string;
   fecha_fin?: string;
   calle?: string;
-  ciudad?: string;
+  localidad?: string;
   departamento?: string;
   estado: string;
   codigo: string;
@@ -504,7 +504,7 @@ export default function EventoForm({ codigo }: { codigo: string }) {
           eventoFecha: fechaInfo?.fechaCorta || null,
           eventoHora: fechaInfo?.hora || null,
           eventoCalle: evento.calle || null,
-          eventoCiudad: evento.ciudad || null,
+          eventoCiudad: evento.localidad || null,
           eventoDepartamento: evento.departamento || null,
           registroId: registro.id,
         }),
@@ -689,9 +689,9 @@ export default function EventoForm({ codigo }: { codigo: string }) {
               📅 {fechaInfo.fecha} · {fechaInfo.hora}hs
             </p>
           ) : null}
-          {evento.calle || evento.ciudad ? (
+          {evento.calle || evento.localidad ? (
             <p className="mt-1 text-sm text-gray-400">
-              📍 {[evento.calle, evento.ciudad].filter(Boolean).join(", ")}
+              📍 {[evento.calle, evento.localidad, evento.departamento].filter(Boolean).join(", ")}
             </p>
           ) : null}
         </div>
@@ -762,11 +762,11 @@ export default function EventoForm({ codigo }: { codigo: string }) {
               </span>
             </div>
           ) : null}
-          {evento.calle || evento.ciudad ? (
+          {evento.calle || evento.localidad ? (
             <div className="flex items-start gap-3 text-sm text-gray-600">
               <span>📍</span>
               <span>
-                {[evento.calle, evento.ciudad, evento.departamento]
+                {[evento.calle, evento.localidad, evento.departamento]
                   .filter(Boolean)
                   .join(", ")}
               </span>

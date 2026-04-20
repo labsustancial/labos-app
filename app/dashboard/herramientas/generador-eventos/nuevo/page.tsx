@@ -11,7 +11,8 @@ type EstadoEvento = "borrador" | "activo" | "finalizado" | "cancelado";
 interface ClienteOption {
   id: string;
   nombre: string;
-  email: string;
+  razon_social?: string | null;
+  email?: string | null;
 }
 
 interface EventoFormData {
@@ -60,7 +61,7 @@ const ESTADOS: { value: EstadoEvento; label: string; color: string }[] = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function EventoForm({ eventoId, onSuccess, onCancel }: EventoFormProps) {
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const router = useRouter();
   const esEdicion = Boolean(eventoId);
 
@@ -141,14 +142,25 @@ export default function EventoForm({ eventoId, onSuccess, onCancel }: EventoForm
       if (query.length < 2) {
         setClientes([]);
         setMostrarDropdown(false);
+        setBuscandoClientes(false);
         return;
       }
+
       setBuscandoClientes(true);
-      const { data } = await supabase
+      const safeQuery = query.replace(/[%_,]/g, "");
+      const { data, error } = await supabase
         .from("clientes")
-        .select("id, nombre, email")
-        .ilike("nombre", `%${query}%`)
+        .select("id, nombre, razon_social, email")
+        .or(`nombre.ilike.%${safeQuery}%,razon_social.ilike.%${safeQuery}%`)
         .limit(8);
+
+      if (error) {
+        console.error("Error buscando clientes:", error);
+        setClientes([]);
+        setMostrarDropdown(false);
+        setBuscandoClientes(false);
+        return;
+      }
 
       setClientes(data ?? []);
       setMostrarDropdown(true);
@@ -528,15 +540,18 @@ export default function EventoForm({ eventoId, onSuccess, onCancel }: EventoForm
                         >
                           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7 7 0 1116.65 16.65z" />
                         </svg>
-                        <input
-                          type="text"
-                          value={busquedaCliente}
-                          onChange={(e) => setBusquedaCliente(e.target.value)}
-                          onFocus={() => busquedaCliente.length >= 2 && setMostrarDropdown(true)}
-                          onBlur={() => setTimeout(() => setMostrarDropdown(false), 150)}
-                          placeholder="Escribí para buscar por nombre…"
-                          className={`${inputClass} pl-9`}
-                        />
+                          <input
+                            type="text"
+                            value={busquedaCliente}
+                            onChange={(e) => setBusquedaCliente(e.target.value)}
+                            onFocus={() => busquedaCliente.length >= 2 && setMostrarDropdown(true)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") e.preventDefault();
+                            }}
+                            onBlur={() => setTimeout(() => setMostrarDropdown(false), 150)}
+                            placeholder="Escribí para buscar por nombre…"
+                            className={`${inputClass} pl-9`}
+                          />
                         {buscandoClientes && (
                           <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -550,16 +565,18 @@ export default function EventoForm({ eventoId, onSuccess, onCancel }: EventoForm
                         <ul className="absolute z-20 mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-hidden">
                           {clientes.map((c) => (
                             <li key={c.id}>
-                              <button
-                                type="button"
-                                onMouseDown={() => seleccionarCliente(c)}
-                                className="w-full text-left px-4 py-2.5 hover:bg-gray-800 transition-colors"
-                              >
-                                <p className="text-sm text-white">{c.nombre}</p>
-                                <p className="text-xs text-gray-500">{c.email}</p>
-                              </button>
-                            </li>
-                          ))}
+                                <button
+                                  type="button"
+                                  onMouseDown={() => seleccionarCliente(c)}
+                                  className="w-full text-left px-4 py-2.5 hover:bg-gray-800 transition-colors"
+                                >
+                                  <p className="text-sm text-white">{c.nombre}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {c.razon_social || c.email || "Sin datos adicionales"}
+                                  </p>
+                                </button>
+                              </li>
+                            ))}
                         </ul>
                       )}
 

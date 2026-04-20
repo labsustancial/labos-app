@@ -107,7 +107,7 @@ export default function EventoStatsPage({ params }: { params: Promise<{ codigo: 
   
     // Cargar el evento
     supabase.from("eventos")
-      .select("id, titulo, clave, fecha_inicio, fecha_fin, clientes(nombre)")
+      .select("id, titulo, clave, fecha_inicio, fecha_fin, clientes!eventos_cliente_id_fkey(nombre)")
       .eq("codigo", codigo).single()
       .then(({ data, error }) => {
         if (error || !data) setNotFound(true);

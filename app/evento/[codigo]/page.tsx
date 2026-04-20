@@ -15,7 +15,7 @@ export async function generateMetadata(
   const supabase = createClient();
   const { data: evento } = await supabase
     .from("eventos")
-    .select("titulo, descripcion, portada_url, clientes(nombre)")
+    .select("titulo, descripcion, portada_url, clientes!eventos_cliente_id_fkey(nombre)")
     .eq("codigo", codigo)
     .single();
 

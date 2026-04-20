@@ -7,7 +7,18 @@ import { ImagenPortada } from "@/components/ImagenPortada";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-interface Cliente { id: string; nombre: string; email?: string; }
+interface Cliente {
+  id: string;
+  nombre: string;
+  email?: string;
+  telefono?: string;
+  telefono2?: string;
+  whatsapp1?: string;
+  whatsapp2?: string;
+  so_nombre?: string;
+  so_apellido?: string;
+  so_telefono?: string;
+}
 
 interface OrigenOpcion {
   id: string;
@@ -39,7 +50,7 @@ interface Evento {
   fecha_inicio?: string;
   fecha_fin?: string;
   calle?: string;
-  ciudad?: string;
+  localidad?: string;
   departamento?: string;
   estado: "activo" | "borrador" | "finalizado";
   codigo: string;
@@ -252,7 +263,7 @@ function TarjetaEvento({ evento, base, onAbrir, onCambiarEstado, onEliminar, onC
 interface EventoForm {
   titulo: string; descripcion: string; cliente_id: string; portada_url: string;
   fecha_inicio: string; hora_inicio: string; fecha_fin: string; hora_fin: string;
-  calle: string; ciudad: string; departamento: string;
+  calle: string; localidad: string; departamento: string;
   estado: "activo" | "borrador" | "finalizado";
   es_gratuito: boolean; precio: string; moneda: string;
   emails_admin: string[];
@@ -276,7 +287,7 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
     fecha_fin: ff ? ff.toISOString().split("T")[0] : "",
     hora_fin: ff ? ff.toLocaleTimeString("es-UY", { hour: "2-digit", minute: "2-digit", hour12: false }) : "",
     calle: evento.calle || "",
-    ciudad: evento.ciudad || "",
+    localidad: evento.localidad || "",
     departamento: evento.departamento || "",
     estado: evento.estado,
     es_gratuito: evento.es_gratuito ?? true,
@@ -288,10 +299,22 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [nuevoEmail, setNuevoEmail] = useState("");
+  const [clienteCRM, setClienteCRM] = useState<Cliente | null>(null);
 
   const set = (k: keyof EventoForm, v: any) => setForm(p => ({ ...p, [k]: v }));
   const clienteSeleccionado = clientes.find(c => c.id === form.cliente_id);
   const inp = "w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors";
+
+  // Cargar datos CRM del cliente seleccionado
+  useEffect(() => {
+    if (!form.cliente_id) { setClienteCRM(null); return; }
+    const supabase = createClient();
+    supabase.from("clientes")
+      .select("id, nombre, email, telefono, telefono2, whatsapp1, whatsapp2, so_nombre, so_apellido, so_telefono")
+      .eq("id", form.cliente_id)
+      .single()
+      .then(({ data }) => { if (data) setClienteCRM(data); });
+  }, [form.cliente_id]);
 
   function agregarEmail() {
     const email = nuevoEmail.trim().toLowerCase();
@@ -330,11 +353,7 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
       const fechaFin = form.fecha_fin
         ? new Date(`${form.fecha_fin}T${form.hora_fin || "00:00"}:00`).toISOString() : null;
 
-      // Incluir email del cliente si tiene y no está ya en la lista
-      let emailsAdmin = [...form.emails_admin];
-      if (clienteSeleccionado?.email && !emailsAdmin.includes(clienteSeleccionado.email)) {
-        // No lo agregamos automáticamente — el admin decide
-      }
+      const emailsAdmin = [...form.emails_admin];
 
       const { data, error: err } = await supabase.from("eventos").update({
         titulo: form.titulo.trim(),
@@ -345,14 +364,14 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
         fecha_inicio: fechaInicio,
         fecha_fin: fechaFin,
         calle: form.calle || null,
-        ciudad: form.ciudad || null,
+        localidad: form.localidad || null,
         departamento: form.departamento || null,
         estado: form.estado,
         es_gratuito: form.es_gratuito,
         precio: form.es_gratuito ? null : parseFloat(form.precio) || null,
         moneda: form.es_gratuito ? null : form.moneda,
         emails_admin: emailsAdmin,
-      }).eq("id", evento.id).select("*, clientes(nombre, email)").single();
+      }).eq("id", evento.id).select("*, clientes!eventos_cliente_id_fkey(nombre, email)").single();
 
       if (err) throw err;
       onGuardado({ ...data, clave_visible: false, emails_admin: data.emails_admin || [] });
@@ -396,6 +415,8 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
                   {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </select>
               </div>
+
+              {/* Email del cliente */}
               {clienteSeleccionado && (
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${clienteSeleccionado.email ? "bg-blue-500/10 border-blue-500/20" : "bg-yellow-500/10 border-yellow-500/20"}`}>
                   <span className="text-xs text-gray-400">📧 Email del cliente:</span>
@@ -404,6 +425,29 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
                     : <span className="text-xs text-yellow-400">Sin email — completar en módulo Clientes</span>}
                 </div>
               )}
+
+              {/* Contactos del CRM */}
+              {clienteCRM && (clienteCRM.telefono || clienteCRM.whatsapp1 || clienteCRM.so_nombre) && (
+                <div className="bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-3 space-y-1.5">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">📋 Contactos del CRM</p>
+                  {clienteCRM.telefono && (
+                    <p className="text-xs text-gray-300">📞 Teléfono: <span className="text-white">{clienteCRM.telefono}</span></p>
+                  )}
+                  {clienteCRM.telefono2 && (
+                    <p className="text-xs text-gray-300">📞 Teléfono 2: <span className="text-white">{clienteCRM.telefono2}</span></p>
+                  )}
+                  {clienteCRM.whatsapp1 && (
+                    <p className="text-xs text-gray-300">💬 WhatsApp: <span className="text-white">{clienteCRM.whatsapp1}</span></p>
+                  )}
+                  {clienteCRM.whatsapp2 && (
+                    <p className="text-xs text-gray-300">💬 WhatsApp 2: <span className="text-white">{clienteCRM.whatsapp2}</span></p>
+                  )}
+                  {clienteCRM.so_nombre && (
+                    <p className="text-xs text-gray-300">👤 Service Owner: <span className="text-white">{[clienteCRM.so_nombre, clienteCRM.so_apellido].filter(Boolean).join(" ")}{clienteCRM.so_telefono ? ` · ${clienteCRM.so_telefono}` : ""}</span></p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="text-xs text-gray-500 block mb-1.5">Título *</label>
                 <input value={form.titulo} onChange={e => set("titulo", e.target.value)}
@@ -462,31 +506,23 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
             <p className="text-xs text-gray-500 mb-3">
               Estos emails recibirán el acceso a las estadísticas del evento.
             </p>
-
-            {/* Emails guardados */}
             {form.emails_admin.length > 0 && (
               <div className="space-y-2 mb-3">
                 {form.emails_admin.map(email => (
                   <div key={email} className="flex items-center gap-2 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg">
                     <span className="text-xs text-blue-400 flex-1">{email}</span>
                     <button onClick={() => quitarEmail(email)}
-                      className="text-xs text-gray-500 hover:text-red-400 transition-colors">
-                      ✕
-                    </button>
+                      className="text-xs text-gray-500 hover:text-red-400 transition-colors">✕</button>
                   </div>
                 ))}
               </div>
             )}
-
-            {/* Agregar email del cliente */}
             {clienteSeleccionado?.email && !form.emails_admin.includes(clienteSeleccionado.email) && (
               <button onClick={() => set("emails_admin", [...form.emails_admin, clienteSeleccionado.email!])}
                 className="text-xs text-blue-400 hover:text-blue-300 transition-colors mb-3 block">
                 + Agregar email del cliente ({clienteSeleccionado.email})
               </button>
             )}
-
-            {/* Input para agregar email manual */}
             <div className="flex gap-2">
               <input value={nuevoEmail} onChange={e => setNuevoEmail(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && agregarEmail()}
@@ -533,8 +569,9 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1.5">Ciudad</label>
-                  <input value={form.ciudad} onChange={e => set("ciudad", e.target.value)} className={inp} />
+                  <label className="text-xs text-gray-500 block mb-1.5">Localidad</label>
+                  <input value={form.localidad} onChange={e => set("localidad", e.target.value)}
+                    placeholder="Ej: Punta del Este" className={inp} />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 block mb-1.5">Departamento</label>
@@ -672,11 +709,8 @@ function ConstructorFormulario({ evento }: { evento: Evento }) {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      {/* Campos del formulario */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">📋 Campos del formulario</h3>
-
-        {/* Campos base (siempre presentes) */}
         <div className="space-y-2 mb-4">
           {[
             { label: "Nombre", tipo: "texto", requerido: true },
@@ -692,8 +726,6 @@ function ConstructorFormulario({ evento }: { evento: Evento }) {
             </div>
           ))}
         </div>
-
-        {/* Campos adicionales */}
         {campos.length > 0 && (
           <div className="space-y-2 mb-4">
             {campos.map(campo => (
@@ -710,8 +742,6 @@ function ConstructorFormulario({ evento }: { evento: Evento }) {
             ))}
           </div>
         )}
-
-        {/* Formulario nuevo campo */}
         {nuevoCampo ? (
           <div className="border border-gray-700 rounded-xl p-4 space-y-3 bg-gray-800/30">
             <div className="grid grid-cols-2 gap-3">
@@ -757,7 +787,6 @@ function ConstructorFormulario({ evento }: { evento: Evento }) {
         )}
       </div>
 
-      {/* Opciones de origen */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">📣 ¿Cómo nos conociste?</h3>
         <p className="text-xs text-gray-500 mb-4">
@@ -765,7 +794,6 @@ function ConstructorFormulario({ evento }: { evento: Evento }) {
             ? "Usando las opciones predeterminadas del sistema."
             : `${origenes.filter(o => o.activo).length} opciones activas.`}
         </p>
-
         {origenes.length > 0 && (
           <div className="space-y-2 mb-4">
             {origenes.map(origen => (
@@ -783,7 +811,6 @@ function ConstructorFormulario({ evento }: { evento: Evento }) {
             ))}
           </div>
         )}
-
         {nuevoOrigen ? (
           <div className="border border-gray-700 rounded-xl p-4 space-y-3 bg-gray-800/30">
             <div className="grid grid-cols-3 gap-3">
@@ -847,7 +874,7 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.from("registros_evento").select("*").eq("evento_id", evento.id)
+    supabase.from("registros").select("*").eq("event_id", evento.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => { if (data) setRegistros(data); setLoadingReg(false); });
   }, [evento.id]);
@@ -858,9 +885,11 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
   }
 
   function descargarCSV() {
-    const headers = ["Nombre", "Apellido", "Teléfono", "Email", "Origen", "Dispositivo", "Fecha"];
-    const rows = registros.map(r => [r.nombre, r.apellido, r.telefono || "", r.email,
-      r.origen || "", r.dispositivo || "", new Date(r.created_at).toLocaleDateString("es-UY")]);
+    const headers = ["Nombre", "Apellido", "Teléfono", "Email", "Fecha"];
+    const rows = registros.map(r => [
+      r.first_name, r.last_name, r.phone || "", r.email,
+      new Date(r.created_at).toLocaleDateString("es-UY")
+    ]);
     const csv = [headers, ...rows].map(r => r.map((v: string) => `"${v}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -895,10 +924,6 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
       setEnviando(false);
     }
   }
-
-  const origenCount = registros.reduce((acc: Record<string, number>, r) => {
-    if (r.origen) acc[r.origen] = (acc[r.origen] || 0) + 1; return acc;
-  }, {});
 
   return (
     <div>
@@ -968,7 +993,7 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
           </div>
           <div>
             <p className="text-xs text-gray-500 mb-0.5">Dirección</p>
-            <p className="text-white">{[evento.calle, evento.ciudad].filter(Boolean).join(", ") || "—"}</p>
+            <p className="text-white">{[evento.calle, evento.localidad, evento.departamento].filter(Boolean).join(", ") || "—"}</p>
           </div>
         </div>
       </div>
@@ -989,7 +1014,6 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
 
       {tab === "acceso" && (
         <div className="space-y-4 max-w-2xl">
-          {/* URLs */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
             <div>
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">🌐 URL pública del formulario</h3>
@@ -1021,7 +1045,6 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
             </div>
           </div>
 
-          {/* Clave */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">🔑 Clave de acceso a estadísticas</h3>
             <div className="flex items-center gap-3 mb-3">
@@ -1044,10 +1067,8 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
             <p className="text-xs text-gray-500">La clave no se puede regenerar una vez creada.</p>
           </div>
 
-          {/* Emails de administración */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">📧 Emails de administración</h3>
-
             {evento.emails_admin?.length > 0 ? (
               <div className="space-y-2 mb-4">
                 {evento.emails_admin.map(email => (
@@ -1059,7 +1080,6 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
             ) : (
               <p className="text-xs text-gray-500 mb-4">Sin emails configurados. Editá el evento para agregar.</p>
             )}
-
             <button onClick={handleEnviarAcceso} disabled={enviando || evento.emails_admin?.length === 0}
               className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-medium text-white transition-colors disabled:opacity-40">
               {enviando ? "Enviando..." : `📨 Enviar acceso a ${evento.emails_admin?.length || 0} email${evento.emails_admin?.length !== 1 ? "s" : ""}`}
@@ -1067,7 +1087,6 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
             {mailEnviado && <p className="text-xs text-green-400 mt-2">✅ Acceso enviado correctamente</p>}
           </div>
 
-          {/* CSV */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">📥 Exportar datos</h3>
             <p className="text-xs text-gray-500 mb-3">{registros.length} registros disponibles.</p>
@@ -1079,22 +1098,10 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
         </div>
       )}
 
-      {tab === "formulario" && (
-        <ConstructorFormulario evento={evento} />
-      )}
+      {tab === "formulario" && <ConstructorFormulario evento={evento} />}
 
       {tab === "registros" && (
         <div className="space-y-5">
-          {Object.keys(origenCount).length > 0 && (
-            <div className="grid grid-cols-3 gap-3">
-              {Object.entries(origenCount).map(([origen, count]) => (
-                <div key={origen} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 mb-1">{origenLabels[origen] ?? origen}</p>
-                  <p className="text-2xl font-bold text-white">{count}</p>
-                </div>
-              ))}
-            </div>
-          )}
           <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
               <span className="text-sm font-medium text-white">{registros.length} registros</span>
@@ -1113,18 +1120,16 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
                   <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wide">
                     <th className="text-left px-5 py-3">Nombre</th>
                     <th className="text-left px-5 py-3">Email</th>
-                    <th className="text-left px-5 py-3">Origen</th>
-                    <th className="text-center px-5 py-3">Dispositivo</th>
+                    <th className="text-left px-5 py-3">Teléfono</th>
                     <th className="text-left px-5 py-3">Fecha</th>
                   </tr>
                 </thead>
                 <tbody>
                   {registros.map(r => (
                     <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/30 transition-colors">
-                      <td className="px-5 py-3 font-medium text-white">{r.nombre} {r.apellido}</td>
+                      <td className="px-5 py-3 font-medium text-white">{r.first_name} {r.last_name}</td>
                       <td className="px-5 py-3 text-gray-400">{r.email}</td>
-                      <td className="px-5 py-3 text-gray-300">{origenLabels[r.origen] ?? "—"}</td>
-                      <td className="px-5 py-3 text-center">{r.dispositivo === "mobile" ? "📱" : "🖥️"}</td>
+                      <td className="px-5 py-3 text-gray-400">{r.phone || "—"}</td>
                       <td className="px-5 py-3 text-gray-500">{new Date(r.created_at).toLocaleDateString("es-UY")}</td>
                     </tr>
                   ))}
@@ -1158,11 +1163,11 @@ export default function GeneradorEventosPage() {
     setLoading(true);
     const supabase = createClient();
     const { data } = await supabase.from("eventos")
-      .select("*, clientes(nombre, email)").order("created_at", { ascending: false });
+      .select("*, clientes!eventos_cliente_id_fkey(nombre, email)").order("created_at", { ascending: false });
     if (data) {
-      const { data: counts } = await supabase.from("registros_evento").select("evento_id");
+      const { data: counts } = await supabase.from("registros").select("event_id");
       const countMap: Record<string, number> = {};
-      counts?.forEach(r => { countMap[r.evento_id] = (countMap[r.evento_id] || 0) + 1; });
+      counts?.forEach(r => { countMap[r.event_id] = (countMap[r.event_id] || 0) + 1; });
       setEventos(data.map(e => ({
         ...e,
         clave_visible: false,
@@ -1185,20 +1190,33 @@ export default function GeneradorEventosPage() {
   async function handleNuevoEvento() {
     setCreando(true);
     try {
+      if (clientes.length === 0) {
+        throw new Error("Necesitás al menos un cliente para crear un evento.");
+      }
       const supabase = createClient();
+      const clienteBase = clientes[0];
       const titulo = tituloDefault();
       const codigo = generarCodigo(titulo) + "-" + Date.now().toString().slice(-4);
       const clave = generarClave();
+      const ahora = new Date().toISOString();
       const { data, error } = await supabase.from("eventos").insert({
-        titulo, codigo, clave, estado: "borrador", es_gratuito: true, emails_admin: [],
-      }).select("*, clientes(nombre, email)").single();
+        titulo,
+        codigo,
+        clave,
+        cliente_id: clienteBase.id,
+        fecha_inicio: ahora,
+        estado: "borrador",
+        es_gratuito: true,
+        moneda: "UYU",
+        emails_admin: [],
+      }).select("*, clientes!eventos_cliente_id_fkey(nombre, email)").single();
       if (error) throw error;
       const nuevo = { ...data, clave_visible: false, _registros_count: 0, emails_admin: [] };
       setEventos(p => [nuevo, ...p]);
       setEventoEnModal(nuevo);
       setShowModal(true);
-    } catch (e) {
-      console.error("Error al crear evento:", e);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "No se pudo crear el evento.");
     } finally {
       setCreando(false);
     }

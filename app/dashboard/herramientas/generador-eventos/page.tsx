@@ -18,9 +18,6 @@ interface Cliente {
   so_nombre?: string;
   so_apellido?: string;
   so_telefono?: string;
-  admin_nombre?: string;
-  admin_apellido?: string;
-  admin_telefono?: string;
 }
 
 interface OrigenOpcion {
@@ -66,31 +63,6 @@ interface Evento {
   emails_admin: string[];
   clientes?: { nombre: string; email?: string };
   _registros_count?: number;
-}
-
-interface RegistroEvento {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone?: string | null;
-  created_at: string;
-}
-
-interface EventoOrganizador {
-  id: string;
-  evento_id: string;
-  cliente_id?: string | null;
-  crm_rol?: "service_owner" | "administrador" | null;
-  nombre: string;
-  telefono?: string | null;
-  orden: number;
-}
-
-interface OrganizadorCrmOpcion {
-  crm_rol: "service_owner" | "administrador";
-  nombre: string;
-  telefono: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -328,73 +300,20 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
   const [error, setError] = useState("");
   const [nuevoEmail, setNuevoEmail] = useState("");
   const [clienteCRM, setClienteCRM] = useState<Cliente | null>(null);
-  const [organizadores, setOrganizadores] = useState<EventoOrganizador[]>([]);
-  const [organizadoresLoading, setOrganizadoresLoading] = useState(true);
-  const [organizadoresError, setOrganizadoresError] = useState("");
-  const [mostrarNuevoOrganizador, setMostrarNuevoOrganizador] = useState(false);
-  const [modoOrganizador, setModoOrganizador] = useState<"crm" | "manual">("crm");
-  const [organizadorCrmDraft, setOrganizadorCrmDraft] = useState<{
-    cliente_id: string;
-    crm_rol: "service_owner" | "administrador";
-    nombre: string;
-    telefono: string;
-  } | null>(null);
-  const [organizadorManual, setOrganizadorManual] = useState({ nombre: "", telefono: "" });
-  const [savingOrganizador, setSavingOrganizador] = useState(false);
 
-  const set = <K extends keyof EventoForm>(k: K, v: EventoForm[K]) => setForm(p => ({ ...p, [k]: v }));
+  const set = (k: keyof EventoForm, v: any) => setForm(p => ({ ...p, [k]: v }));
   const clienteSeleccionado = clientes.find(c => c.id === form.cliente_id);
   const inp = "w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors";
-  const crmOrganizadores: OrganizadorCrmOpcion[] = [];
-
-  if (clienteCRM?.so_nombre || clienteCRM?.so_apellido) {
-    crmOrganizadores.push({
-      crm_rol: "service_owner",
-      nombre: [clienteCRM.so_nombre, clienteCRM.so_apellido].filter(Boolean).join(" "),
-      telefono: clienteCRM.so_telefono || "",
-    });
-  }
-  if (clienteCRM?.admin_nombre || clienteCRM?.admin_apellido) {
-    crmOrganizadores.push({
-      crm_rol: "administrador",
-      nombre: [clienteCRM.admin_nombre, clienteCRM.admin_apellido].filter(Boolean).join(" "),
-      telefono: clienteCRM.admin_telefono || "",
-    });
-  }
 
   // Cargar datos CRM del cliente seleccionado
   useEffect(() => {
     if (!form.cliente_id) { setClienteCRM(null); return; }
     const supabase = createClient();
     supabase.from("clientes")
-      .select("id, nombre, email, telefono, telefono2, whatsapp1, whatsapp2, so_nombre, so_apellido, so_telefono, admin_nombre, admin_apellido, admin_telefono")
+      .select("id, nombre, email, telefono, telefono2, whatsapp1, whatsapp2, so_nombre, so_apellido, so_telefono")
       .eq("id", form.cliente_id)
       .single()
       .then(({ data }) => { if (data) setClienteCRM(data); });
-  }, [form.cliente_id]);
-
-  useEffect(() => {
-    const supabase = createClient();
-    setOrganizadoresLoading(true);
-    setOrganizadoresError("");
-    supabase
-      .from("evento_organizadores")
-      .select("id, evento_id, cliente_id, crm_rol, nombre, telefono, orden")
-      .eq("evento_id", evento.id)
-      .order("orden")
-      .then(({ data, error }) => {
-        if (error) {
-          setOrganizadoresError("No pudimos cargar los organizadores.");
-          return;
-        }
-        setOrganizadores(data || []);
-      })
-      .finally(() => setOrganizadoresLoading(false));
-  }, [evento.id]);
-
-  useEffect(() => {
-    setOrganizadorCrmDraft(null);
-    setModoOrganizador("crm");
   }, [form.cliente_id]);
 
   function agregarEmail() {
@@ -407,74 +326,6 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
 
   function quitarEmail(email: string) {
     set("emails_admin", form.emails_admin.filter(e => e !== email));
-  }
-
-  function resetNuevoOrganizador() {
-    setMostrarNuevoOrganizador(false);
-    setModoOrganizador("crm");
-    setOrganizadorCrmDraft(null);
-    setOrganizadorManual({ nombre: "", telefono: "" });
-    setOrganizadoresError("");
-  }
-
-  async function agregarOrganizador() {
-    const supabase = createClient();
-    const orden = organizadores.length > 0
-      ? Math.max(...organizadores.map(o => o.orden || 0)) + 1
-      : 0;
-
-    const payload = modoOrganizador === "crm"
-      ? organizadorCrmDraft
-        ? {
-            evento_id: evento.id,
-            cliente_id: organizadorCrmDraft.cliente_id,
-            crm_rol: organizadorCrmDraft.crm_rol,
-            nombre: organizadorCrmDraft.nombre.trim(),
-            telefono: organizadorCrmDraft.telefono.trim() || null,
-            orden,
-          }
-        : null
-      : {
-          evento_id: evento.id,
-          cliente_id: null,
-          crm_rol: null,
-          nombre: organizadorManual.nombre.trim(),
-          telefono: organizadorManual.telefono.trim() || null,
-          orden,
-        };
-
-    if (!payload?.nombre) {
-      setOrganizadoresError("Ingresá un nombre para el organizador.");
-      return;
-    }
-
-    setSavingOrganizador(true);
-    setOrganizadoresError("");
-    const { data, error } = await supabase
-      .from("evento_organizadores")
-      .insert(payload)
-      .select("id, evento_id, cliente_id, crm_rol, nombre, telefono, orden")
-      .single();
-
-    setSavingOrganizador(false);
-
-    if (error || !data) {
-      setOrganizadoresError(error?.message || "No pudimos guardar el organizador.");
-      return;
-    }
-
-    setOrganizadores(prev => [...prev, data]);
-    resetNuevoOrganizador();
-  }
-
-  async function eliminarOrganizador(id: string) {
-    const supabase = createClient();
-    const { error } = await supabase.from("evento_organizadores").delete().eq("id", id);
-    if (error) {
-      setOrganizadoresError(error.message || "No pudimos eliminar el organizador.");
-      return;
-    }
-    setOrganizadores(prev => prev.filter(org => org.id !== id));
   }
 
   async function handlePortadaChange(url: string) {
@@ -525,8 +376,8 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
       if (err) throw err;
       onGuardado({ ...data, clave_visible: false, emails_admin: data.emails_admin || [] });
       onClose();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al guardar");
+    } catch (e: any) {
+      setError(e.message || "Error al guardar");
     } finally {
       setLoading(false);
     }
@@ -593,9 +444,6 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
                   )}
                   {clienteCRM.so_nombre && (
                     <p className="text-xs text-gray-300">👤 Service Owner: <span className="text-white">{[clienteCRM.so_nombre, clienteCRM.so_apellido].filter(Boolean).join(" ")}{clienteCRM.so_telefono ? ` · ${clienteCRM.so_telefono}` : ""}</span></p>
-                  )}
-                  {(clienteCRM.admin_nombre || clienteCRM.admin_apellido) && (
-                    <p className="text-xs text-gray-300">👤 Administrador: <span className="text-white">{[clienteCRM.admin_nombre, clienteCRM.admin_apellido].filter(Boolean).join(" ")}{clienteCRM.admin_telefono ? ` · ${clienteCRM.admin_telefono}` : ""}</span></p>
                   )}
                 </div>
               )}
@@ -685,171 +533,6 @@ function EventoModal({ evento, clientes, onClose, onGuardado }: {
                 + Agregar
               </button>
             </div>
-          </div>
-
-          <div>
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">👤 Organizadores</h3>
-            <p className="text-xs text-gray-500 mb-3">
-              Este contacto se muestra públicamente al invitado después del registro y en el email de confirmación.
-            </p>
-
-            {organizadoresLoading ? (
-              <div className="text-xs text-gray-500">Cargando organizadores...</div>
-            ) : organizadores.length > 0 ? (
-              <div className="space-y-2 mb-3">
-                {organizadores.map((organizador) => (
-                  <div key={organizador.id} className="flex items-center gap-2 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white truncate">{organizador.nombre}</p>
-                      <p className="text-xs text-gray-500">
-                        {organizador.telefono || "Sin teléfono"}
-                        {organizador.crm_rol ? ` · ${organizador.crm_rol === "service_owner" ? "CRM: Service Owner" : "CRM: Administrador"}` : " · Manual"}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => eliminarOrganizador(organizador.id)}
-                      className="text-xs text-gray-500 hover:text-red-400 transition-colors"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mb-3 rounded-lg border border-dashed border-gray-700 px-3 py-3 text-xs text-gray-500">
-                Todavía no hay organizadores cargados para este evento.
-              </div>
-            )}
-
-            {organizadoresError && (
-              <div className="mb-3 rounded-lg border border-red-700/40 bg-red-900/20 px-3 py-2 text-xs text-red-300">
-                {organizadoresError}
-              </div>
-            )}
-
-            {!mostrarNuevoOrganizador ? (
-              <button
-                onClick={() => setMostrarNuevoOrganizador(true)}
-                className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm text-white transition-colors"
-              >
-                + Agregar organizador
-              </button>
-            ) : (
-              <div className="rounded-xl border border-gray-700 bg-gray-800/40 p-4 space-y-4">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setModoOrganizador("crm")}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${modoOrganizador === "crm" ? "bg-blue-900/30 text-blue-300 border-blue-700/40" : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500"}`}
-                  >
-                    Desde CRM
-                  </button>
-                  <button
-                    onClick={() => setModoOrganizador("manual")}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${modoOrganizador === "manual" ? "bg-blue-900/30 text-blue-300 border-blue-700/40" : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500"}`}
-                  >
-                    Manual
-                  </button>
-                </div>
-
-                {modoOrganizador === "crm" ? (
-                  <div className="space-y-3">
-                    {!form.cliente_id ? (
-                      <p className="text-xs text-yellow-400">Seleccioná un cliente en el evento para usar contactos del CRM.</p>
-                    ) : crmOrganizadores.length === 0 ? (
-                      <p className="text-xs text-gray-500">Este cliente no tiene Service Owner ni Administrador cargados.</p>
-                    ) : (
-                      <>
-                        <div className="space-y-2">
-                          {crmOrganizadores.map((opcion) => {
-                            const activa = organizadorCrmDraft?.crm_rol === opcion.crm_rol;
-                            return (
-                              <button
-                                key={opcion.crm_rol}
-                                onClick={() => setOrganizadorCrmDraft({
-                                  cliente_id: form.cliente_id,
-                                  crm_rol: opcion.crm_rol,
-                                  nombre: opcion.nombre,
-                                  telefono: opcion.telefono,
-                                })}
-                                className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${activa ? "border-blue-500/60 bg-blue-500/10" : "border-gray-700 bg-gray-900/40 hover:border-gray-500"}`}
-                              >
-                                <p className="text-sm text-white">
-                                  {opcion.crm_rol === "service_owner" ? "Service Owner" : "Administrador"}
-                                </p>
-                                <p className="text-xs text-gray-400">
-                                  {opcion.nombre}
-                                  {opcion.telefono ? ` · ${opcion.telefono}` : ""}
-                                </p>
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        {organizadorCrmDraft && (
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="col-span-2">
-                              <label className="text-xs text-gray-500 block mb-1.5">Nombre público</label>
-                              <input
-                                value={organizadorCrmDraft.nombre}
-                                onChange={e => setOrganizadorCrmDraft(prev => prev ? { ...prev, nombre: e.target.value } : prev)}
-                                className={inp}
-                              />
-                            </div>
-                            <div className="col-span-2">
-                              <label className="text-xs text-gray-500 block mb-1.5">Teléfono público</label>
-                              <input
-                                value={organizadorCrmDraft.telefono}
-                                onChange={e => setOrganizadorCrmDraft(prev => prev ? { ...prev, telefono: e.target.value } : prev)}
-                                placeholder="Ej: 099 123 456"
-                                className={inp}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
-                      <label className="text-xs text-gray-500 block mb-1.5">Nombre público</label>
-                      <input
-                        value={organizadorManual.nombre}
-                        onChange={e => setOrganizadorManual(prev => ({ ...prev, nombre: e.target.value }))}
-                        placeholder="Ej: Martín Aspitia"
-                        className={inp}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs text-gray-500 block mb-1.5">Teléfono público</label>
-                      <input
-                        value={organizadorManual.telefono}
-                        onChange={e => setOrganizadorManual(prev => ({ ...prev, telefono: e.target.value }))}
-                        placeholder="Ej: 099 123 456"
-                        className={inp}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={agregarOrganizador}
-                    disabled={savingOrganizador}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm text-white transition-colors disabled:opacity-50"
-                  >
-                    {savingOrganizador ? "Guardando..." : "Guardar organizador"}
-                  </button>
-                  <button
-                    onClick={resetNuevoOrganizador}
-                    disabled={savingOrganizador}
-                    className="px-4 py-2 rounded-lg border border-gray-700 text-sm text-gray-400 hover:text-white transition-colors disabled:opacity-50"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Fechas */}
@@ -1178,7 +861,7 @@ function EventoDetalle({ evento, clientes, onVolver, onToggleClave, onEventoActu
   onEventoActualizado: (e: Evento) => void;
 }) {
   const [tab, setTab] = useState<"acceso" | "registros" | "formulario">("acceso");
-  const [registros, setRegistros] = useState<RegistroEvento[]>([]);
+  const [registros, setRegistros] = useState<any[]>([]);
   const [loadingReg, setLoadingReg] = useState(true);
   const [copiado, setCopiado] = useState<string | null>(null);
   const [mailEnviado, setMailEnviado] = useState(false);

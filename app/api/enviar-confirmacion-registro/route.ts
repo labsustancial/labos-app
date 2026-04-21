@@ -1,15 +1,10 @@
 import { Resend } from "resend";
-import { createClient } from "@supabase/supabase-js";
 
 if (!process.env.RESEND_API_KEY) {
   throw new Error("Falta RESEND_API_KEY en variables de entorno");
 }
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
 
 export async function POST(req: Request) {
   try {
@@ -23,7 +18,6 @@ export async function POST(req: Request) {
       eventoCalle,
       eventoCiudad,
       eventoDepartamento,
-      eventoId,
       registroId,
     } = await req.json();
 
@@ -37,24 +31,6 @@ export async function POST(req: Request) {
     // QR code via api.qrserver.com — gratis, sin auth
     const qrData = encodeURIComponent(`registro:${registroId}`);
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${qrData}&color=333333&bgcolor=ffffff&margin=10`;
-    const { data: organizadores } = eventoId
-      ? await supabase
-          .from("evento_organizadores")
-          .select("nombre, telefono")
-          .eq("evento_id", eventoId)
-          .order("orden")
-      : { data: [] as { nombre: string; telefono?: string | null }[] };
-    const organizadoresHtml = (organizadores || []).length > 0
-      ? `
-                <tr>
-                  <td colspan="2" style="padding-bottom:14px;vertical-align:top;">
-                    <p style="margin:0 0 3px;font-size:10px;letter-spacing:2px;color:#999;text-transform:uppercase;">📞 Contacto del organizador</p>
-                    ${(organizadores || []).map((organizador) => `
-                    <p style="margin:0 0 6px;font-size:14px;font-weight:600;color:#1a1a1a;">${organizador.nombre}${organizador.telefono ? ` — ${organizador.telefono}` : ""}</p>
-                    `).join("")}
-                  </td>
-                </tr>`
-      : "";
 
     const html = `
 <!DOCTYPE html>
@@ -123,7 +99,6 @@ export async function POST(req: Request) {
                     <p style="margin:0;font-size:14px;font-weight:600;color:#1a1a1a;">${direccion}</p>
                   </td>
                 </tr>` : ''}
-                ${organizadoresHtml}
               </table>
             </td>
           </tr>
@@ -178,10 +153,10 @@ export async function POST(req: Request) {
 
     return Response.json({ ok: true, data });
 
-  } catch (error: unknown) {
+  } catch (error: any) {
     console.error("ERROR RESEND confirmacion:", error);
     return Response.json(
-      { error: error instanceof Error ? error.message : "Error enviando email" },
+      { error: error.message || "Error enviando email" },
       { status: 500 }
     );
   }
